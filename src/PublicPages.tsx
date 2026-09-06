@@ -73,7 +73,7 @@ export function InicioPage() {
   const featured=data && featuredMatch(data.matches)
   const latest = data?.matches.filter(m=>m.match.status==='FINALIZADO').sort((a,b)=>b.match.updated_at.localeCompare(a.match.updated_at))[0]
   return <div className="space-y-6">
-    <section className="hero"><div><p className="eyebrow">LA PASIÓN NOS UNE</p><h1>Copa San Martín <span>2026</span></h1><p>El campeonato se vive aquí.</p></div><img src="/brand/copa.png" alt="Logo oficial Copa San Martín"/></section>
+    <section className="hero"><div><p className="eyebrow">LA PASIÓN NOS UNE</p><h1>Copa Martín <span>2026</span></h1><p>El campeonato se vive aquí.</p></div><img src="/brand/copa.png" alt="Logo oficial Copa Martín"/></section>
     {celebration && <div role="status" className="rounded-xl bg-green-100 p-6 text-center text-2xl font-bold text-green-900">¡GOOOL!<br/>{celebration}</div>}
     {loading && <p role="status">Cargando campeonato…</p>}
     {error && <p role="alert">{error}</p>}

@@ -10,7 +10,7 @@ function Icon({ name }: { name: string }) {
 function Layout({ admin=false }: {admin?:boolean}) {
   const {pathname}=useLocation()
   const links=admin ? [ ['equipos','Equipos','teams'], ['crear','Crear','plus'], ['calendario','Calendario','calendar'], ['controlar','Controlar','control'] ] : [['','Inicio','home'],['tablas','Tabla','table'],['calendario','Calendario','calendar']]
-  return <><header className="brand-header"><img src="/brand/parroquia.png" alt="Parroquia San Martín de Porres – Tarija"/><div><strong>COPA SAN MARTÍN <span>2026</span></strong><small>{admin?'CENTRO DE ADMINISTRACIÓN':'FUTSAL · COMUNIDAD · PASIÓN'}</small></div></header>
+  return <><header className="brand-header"><img src="/brand/parroquia.png" alt="Parroquia San Martín de Porres – Tarija"/><div><strong>COPA MARTÍN <span>2026</span></strong><small>{admin?'CENTRO DE ADMINISTRACIÓN':'FUTSAL · COMUNIDAD · PASIÓN'}</small></div></header>
     <main className="app-main"><Outlet/></main>
     <nav className="bottom-nav" aria-label={admin?'Navegación administrativa':'Navegación pública'}>{links.map(([path,label,icon])=><NavLink key={path} to={admin?`/admin/${path}`:`/${path}`} end className={({isActive})=>isActive||(admin&&path==='controlar'&&pathname.startsWith('/admin/partidos/'))?'active':''}><Icon name={icon}/><span>{label}</span></NavLink>)}</nav></>
 }

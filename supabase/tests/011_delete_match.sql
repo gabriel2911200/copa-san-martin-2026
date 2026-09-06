@@ -1,0 +1,35 @@
+begin;
+do $$
+declare c uuid; d uuid; a uuid; b uuid; mid uuid; other_id uuid; v timestamptz; rejected boolean; before_other jsonb;
+begin
+  insert into public.categories(name) values('__delete_test_'||gen_random_uuid()) returning id into c;
+  select id into d from public.matchdays where number=1;
+  insert into public.teams(category_id,name) values(c,'A') returning id into a;
+  insert into public.teams(category_id,name) values(c,'B') returning id into b;
+  insert into public.matches(category_id,matchday_id,home_team_id,away_team_id) values(c,d,a,b) returning id into mid;
+  insert into public.matches(category_id,matchday_id,home_team_id,away_team_id) values(c,d,b,a) returning id into other_id;
+  insert into public.match_events(match_id,team_id,period,clock_seconds) values(mid,a,'PRIMER_TIEMPO',39),(other_id,b,'PRIMER_TIEMPO',50);
+  insert into public.match_events(match_id,team_id,period,clock_seconds,voided_at) values(mid,b,'PRIMER_TIEMPO',40,now());
+  update public.matches set status='FINALIZADO' where id=mid returning updated_at into v;
+  select jsonb_build_object('match',to_jsonb(m),'events',(select jsonb_agg(e) from public.match_events e where match_id=other_id)) into before_other from public.matches m where id=other_id;
+  assert (select pts=3 and gf=1 from public.get_standings(c,false) where team_id=a);
+  rejected:=false;
+  begin delete from public.match_events where match_id=mid; exception when raise_exception then rejected:=true; end;
+  assert rejected,'El borrado individual sigue bloqueado';
+  rejected:=false;
+  begin perform public.delete_match(mid,v-interval '1 second'); exception when raise_exception then rejected:=true; end;
+  assert rejected,'Versión obsoleta rechazada';
+  set local role anon;
+  perform public.delete_match(mid,v);
+  perform public.delete_match(mid,v);
+  reset role;
+  assert not exists(select 1 from public.matches where id=mid);
+  assert not exists(select 1 from public.match_events where match_id=mid);
+  assert (select pts=0 and pj=0 and gf=0 from public.get_standings(c,false) where team_id=a);
+  assert (select jsonb_build_object('match',to_jsonb(m),'events',(select jsonb_agg(e) from public.match_events e where match_id=other_id)) from public.matches m where id=other_id)=before_other;
+  assert (select count(*) from public.teams where category_id=c)=2;
+  assert not has_table_privilege('anon','public.matches','DELETE');
+  assert not has_table_privilege('anon','public.match_events','DELETE');
+  assert coalesce(current_setting('copa.deleting_match',true),'')='';
+end $$;
+rollback;

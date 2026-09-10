@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node --test tests/matchClock.test.ts tests/goalRequest.test.ts",
+    "test": "node --test tests/matchClock.test.ts tests/goalRequest.test.ts tests/matchEvents.test.ts",
     "test:browser": "playwright test"
   },
   "dependencies": {

@@ -1,35 +1,49 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import MatchDetails from './MatchDetails'
+import MatchDetails, { MatchTimeline } from './MatchDetails'
+import MatchStats from './MatchStats'
 import ScheduleEditor from './ScheduleEditor'
 import DeleteMatchButton from './DeleteMatchButton'
 import { useTournament } from './lib/useTournament'
-import { elapsedSeconds, formatClock } from './lib/matchClock'
+import { clockAt, elapsedSeconds, formatClock, timeoutSeconds } from './lib/matchClock'
+import { currentPeriod } from './lib/matchEvents'
 import { featuredMatch, isActive, podium, stageLabels, teamName } from './lib/tournament'
 import type { PublicMatch, Tournament } from './lib/tournament'
 import type { LiveChange } from './lib/useLiveRefresh'
 
-export function PublicMatchCard({ item, clock = false }: { item: PublicMatch; clock?: boolean }) {
+export function PublicMatchCard({ item, clock = false, statistics = false, refresh }: { item: PublicMatch; clock?: boolean; statistics?: boolean; refresh?: () => Promise<void> }) {
   const [now,setNow] = useState(() => Date.parse(item.server_now))
   useEffect(() => {
-    if (!clock) return
+    if (!clock && !item.match.timeout_started_at) return
     const start = performance.now()
     const server = Date.parse(item.server_now)
     const tick = () => setNow(server + performance.now() - start)
     const initial = setTimeout(tick,0)
     const timer = setInterval(tick,1000)
     return () => { clearTimeout(initial); clearInterval(timer) }
-  }, [item.server_now,clock])
+  }, [item.server_now,clock,item.match.timeout_started_at])
+  const displayMatch = clockAt(item.match, now)
+  const inTimeout = displayMatch.status === 'TIEMPO_MUERTO'
   const penalty = item.match.tiebreak_winner_team_id
   return <article className={`match-card ${clock?'featured-match':''}`}>
     <div className="match-meta"><span>{item.category} · Fecha {item.matchday}</span><span>{stageLabels[item.match.stage]}</span></div>
+    {isActive(item) && <MatchStats match={displayMatch} fouls={item.fouls} events={item.events} home={item.home} away={item.away}/>}
     <div className="score-line"><p>{item.home}</p><strong className={item.match.status==='PROGRAMADO'?'scheduled-score':''}>{item.match.status==='PROGRAMADO'?'Programado':`${item.score.home} - ${item.score.away}`}</strong><p>{item.away}</p></div>
-    <div className="match-status"><span className={isActive(item)?'live-dot':''}>{isActive(item)?`En vivo · ${item.match.status.replaceAll('_',' ')}`:item.match.status==='FINALIZADO'?'Resultado final':'Pendiente de inicio'}</span>
-      {clock&&isActive(item)&&<p role="timer" aria-label="Cronómetro">{formatClock(elapsedSeconds(item.match,now))}</p>}
+    <div className="match-status"><span className={isActive(item)&&!inTimeout?'live-dot':''}>{inTimeout?`En vivo · ${currentPeriod(displayMatch)}T`:isActive(item)?`En vivo · ${displayMatch.status.replaceAll('_',' ')}`:item.match.status==='FINALIZADO'?'Resultado final':'Pendiente de inicio'}</span>
+      {(clock||inTimeout)&&isActive(item)&&<p role="timer" aria-label="Cronómetro">{formatClock(elapsedSeconds(displayMatch,now))}</p>}
     </div>
+    {inTimeout && <div className="public-timeout" role="region" aria-label="Minuto en curso">
+      <p className="public-timeout-title">⏸️ MINUTO</p>
+      <p>{teamName(item, item.match.timeout_team_id ?? null)}</p>
+      <p>Tiempo del partido: {currentPeriod(displayMatch)}T {formatClock(elapsedSeconds(displayMatch,now))} · Detenido</p>
+      <p role="timer" aria-label="Contador de minuto">{formatClock(60 - timeoutSeconds(displayMatch,now))}</p>
+    </div>}
     <p className="schedule-line">{item.match.scheduled_date?item.match.scheduled_date.split('-').reverse().join('/'):'Fecha individual por confirmar'} · {item.match.scheduled_time?.slice(0,5)??'Hora por confirmar'} <small>Tarija</small></p>
     {penalty&&item.score.home===item.score.away&&<p className="penalty-label">{teamName(item,penalty)} gana por penales</p>}
-    <MatchDetails item={item}/>
+    {(statistics || (!clock && item.match.status !== 'PROGRAMADO')) && <MatchDetails item={item} refresh={refresh}/>}
+    {clock && isActive(item) && !statistics && <section className="live-match-stats p-3" aria-label="Estadísticas del partido">
+      <h2>ESTADÍSTICAS DEL PARTIDO</h2>
+      <MatchTimeline item={item}/>
+    </section>}
   </article>
 }
 
@@ -97,11 +111,11 @@ export function PartidosPage({admin=false}:{admin?:boolean}) {
     <div className="category-tabs"><button aria-pressed={category==='all'} onClick={()=>setCategory('all')}>Todos</button>{data?.categories.map(c=><button key={c.id} aria-pressed={category===c.id} onClick={()=>setCategory(c.id)}>{c.name}</button>)}</div>
     {loading&&<p role="status">Cargando calendario…</p>}{error&&<p role="alert">{error}</p>}
     {data?.matchdays.map(d=>{
-      const matches=data.matches.filter(m=>!deleted.includes(m.match.id)&&m.matchday===d.number&&(category==='all'||m.match.category_id===category)).sort((a,b)=>(a.match.scheduled_date??'9999').localeCompare(b.match.scheduled_date??'9999')||(a.match.scheduled_time??'99').localeCompare(b.match.scheduled_time??'99'))
+      const matches=data.matches.filter(m=>m.match.status==='FINALIZADO'&&!deleted.includes(m.match.id)&&m.matchday===d.number&&(category==='all'||m.match.category_id===category)).sort((a,b)=>(a.match.scheduled_date??'9999').localeCompare(b.match.scheduled_date??'9999')||(a.match.scheduled_time??'99').localeCompare(b.match.scheduled_time??'99'))
       return <section key={d.id} className="calendar-day"><div className="day-heading"><h2>Fecha {d.number}</h2><span>{d.number<=4?'Regular':d.number===5?'Semifinales':'Final / Tercer puesto'}</span></div>
         {d.date&&<p className="schedule-line">Referencia de jornada: {d.date.split('-').reverse().join('/')}</p>}
-        {!matches.length&&<p className="empty-state">Sin partidos programados.</p>}
-        <div className="calendar-grid">{matches.map(m=><div key={m.match.id} className="calendar-entry"><PublicMatchCard item={m}/>{admin&&<div className="calendar-actions"><Link className="primary-link" to={`/admin/partidos/${m.match.id}`}>{m.match.status==='FINALIZADO'?'Ver control y resultado':'Controlar partido'} →</Link><ScheduleEditor key={m.match.updated_at} item={m} refresh={refresh}/><DeleteMatchButton item={m} onDeleted={id=>{setDeleted(current=>[...current,id]);void refresh()}}/></div>}</div>)}</div>
+        {!matches.length&&<p className="empty-state">Sin partidos finalizados.</p>}
+        <div className="calendar-grid">{matches.map(m=><div key={m.match.id} className="calendar-entry"><PublicMatchCard item={m} statistics refresh={admin?refresh:undefined}/>{admin&&<div className="calendar-actions"><ScheduleEditor key={m.match.updated_at} item={m} refresh={refresh}/><DeleteMatchButton item={m} onDeleted={id=>{setDeleted(current=>[...current,id]);void refresh()}}/></div>}</div>)}</div>
       </section>
     })}
   </div>

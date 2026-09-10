@@ -11,7 +11,7 @@ test('solo administrador: cancelar no borra; confirmar elimina solo el partido e
     return route.fulfill({json:data})
   })
   await page.goto('/calendario')
-  await expect(page.getByText('Local one',{exact:true})).toBeVisible()
+  await expect(page.locator('.match-card').getByRole('paragraph').filter({hasText:'Local one'})).toBeVisible()
   await expect(page.getByRole('button',{name:'Eliminar partido',exact:true})).toHaveCount(0)
   await page.goto('/admin/calendario')
   await page.getByRole('button',{name:'Eliminar partido',exact:true}).first().click()

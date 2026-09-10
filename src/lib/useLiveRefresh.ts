@@ -18,7 +18,7 @@ export function useLiveRefresh(refresh: () => void, onChange?: (change: LiveChan
       timer = setTimeout(() => { if (!disposed) handlers.current.refresh() }, 120)
     }
     const channel = client.channel(`tournament:${crypto.randomUUID()}`)
-    for (const table of ['matches','match_events','categories','teams','matchdays']) {
+    for (const table of ['matches','match_events','categories','teams','matchdays','players','match_players','match_prechecks','match_foul_counters']) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table }, payload => {
         if (disposed) return
         handlers.current.onChange?.(payload)

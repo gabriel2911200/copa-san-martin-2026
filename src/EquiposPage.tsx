@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from './lib/supabase'
 import { useLiveRefresh } from './lib/useLiveRefresh'
+import TeamPlayers from './TeamPlayers'
 
 type Category = { id: string; name: string }
 type Team = { id: string; category_id: string; name: string; active: boolean }
@@ -28,6 +29,7 @@ export default function EquiposPage() {
   const [editing, setEditing] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [retry, setRetry] = useState(0)
+  const [rosterId, setRosterId] = useState<string | null>(null)
   useLiveRefresh(() => { if (!busy) setRetry(value => value + 1) })
 
   useEffect(() => {
@@ -41,9 +43,8 @@ export default function EquiposPage() {
         if (result.error) throw result.error
         if (!result.data.length) throw new Error('Sin categorías')
         if (!cancelled) {
-          const rows = result.data.sort((a, b) => (a.name === 'Varones' ? -1 : b.name === 'Varones' ? 1 : 0))
+          const rows = result.data.sort((a, b) => a.name.localeCompare(b.name, 'es'))
           setCategories(rows)
-          setCategoryId(current => current || rows[0].id)
         }
       } catch (err) { if (!cancelled) setError(errorMessage(err)) }
       finally { if (!cancelled) setLoadingCategories(false) }
@@ -53,15 +54,15 @@ export default function EquiposPage() {
   }, [retry])
 
   useEffect(() => {
-    if (!categoryId) return
     let cancelled = false
     async function load() {
       setLoading(true)
-      setTeams([])
       setError('')
       try {
         if (!supabase) throw new Error('Sin configuración')
-        const result = await supabase.from('teams').select(fields).eq('category_id', categoryId).is('deleted_at', null).order('name')
+        let query = supabase.from('teams').select(fields).is('deleted_at', null).order('name')
+        if (categoryId) query = query.eq('category_id', categoryId)
+        const result = await query
         if (result.error) throw result.error
         if (!cancelled) setTeams(result.data)
       } catch (err) { if (!cancelled) setError(errorMessage(err)) }
@@ -72,11 +73,11 @@ export default function EquiposPage() {
   }, [categoryId, retry])
 
   async function save(action: 'create' | 'rename', team?: Team) {
-    if (busy || loading || loadingCategories || !categoryId) return
+    if (busy || loading || loadingCategories || (action === 'create' && !categoryId)) return
     const trimmed = (action === 'rename' ? editName : name).trim()
     setError(''); setSuccess('')
     if (!trimmed) { setError('Escribe un nombre de equipo.'); return }
-    if (teams.some(t => t.name === trimmed && t.id !== team?.id)) {
+    if (teams.some(t => t.name === trimmed && t.category_id === (team?.category_id ?? categoryId) && t.id !== team?.id)) {
       setError('Ya existe un equipo con ese nombre en esta categoría.'); return
     }
     setBusy(true)
@@ -85,7 +86,7 @@ export default function EquiposPage() {
       const result = action === 'create'
         ? await supabase.from('teams').insert({ category_id: categoryId, name: trimmed, active: true }).select(fields).single()
         : await supabase.from('teams').update({ name: trimmed })
-            .eq('id', team!.id).eq('category_id', categoryId).select(fields).single()
+            .eq('id', team!.id).eq('category_id', team!.category_id).select(fields).single()
       if (result.error) throw result.error
       const saved = result.data as Team
       setTeams(current => [...current.filter(t => t.id !== saved.id), saved].sort((a, b) => a.name.localeCompare(b.name, 'es')))
@@ -107,26 +108,22 @@ export default function EquiposPage() {
     } catch(err){setError(errorMessage(err))} finally {setBusy(false)}
   }
   function submit(event: FormEvent) { event.preventDefault(); void save('create') }
-  const disabled = busy || loading || loadingCategories || !categoryId
+  const disabled = busy || loading || loadingCategories
   return (
     <div className="space-y-6">
       <h1>Equipos</h1>
-      <div>
-        <label htmlFor="category" className="mb-2 block font-medium">Categoría</label>
-        <select id="category" className={`${control} w-full bg-white`} value={categoryId} disabled={busy || loadingCategories} onChange={event => {
-          setCategoryId(event.target.value); setEditing(null); setName(''); setSuccess(''); setError('')
-        }}>
-          {!categories.length && <option value="">Cargando categorías…</option>}
-          {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
-        </select>
+      <div className="category-tabs" aria-label="Categoría">
+        {[{ id: '', name: 'TODOS' }, ...categories].map(category => <button key={category.id} aria-pressed={categoryId === category.id} disabled={busy || loadingCategories} onClick={() => {
+          setCategoryId(category.id); setTeams([]); setEditing(null); setRosterId(null); setName(''); setSuccess(''); setError('')
+        }}>{category.name.toUpperCase()}</button>)}
       </div>
       {error && <div role="alert" className="rounded-lg bg-red-50 p-4 text-red-800">{error}</div>}
       <p role="status" className="text-green-800">{success}</p>
-      <form onSubmit={submit} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+      {categoryId && <form onSubmit={submit} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
         <label htmlFor="team-name" className="block font-medium">Nuevo equipo</label>
         <input id="team-name" value={name} onChange={event => setName(event.target.value)} disabled={disabled} className={`${control} w-full`} placeholder="Nombre del equipo" required />
         <button disabled={disabled} className={`${control} w-full bg-blue-700 font-medium text-white`}>Agregar equipo</button>
-      </form>
+      </form>}
       {(loading || loadingCategories || busy) && <p role="status">{busy ? 'Guardando…' : 'Cargando…'}</p>}
       {!loading && !loadingCategories && !error && !teams.length && <p>No hay equipos en esta categoría.</p>}
       <ul className="space-y-3" aria-label="Equipos de la categoría" aria-busy={loading || busy}>
@@ -140,8 +137,10 @@ export default function EquiposPage() {
             <div className="flex flex-wrap gap-2">
               <button type="button" className={control} disabled={disabled} aria-label={`Editar ${team.name}`} onClick={() => { setEditing(team.id); setEditName(team.name); setSuccess('') }}>Editar</button>
               <button type="button" className={control} disabled={disabled} aria-label={`Eliminar ${team.name}`} onClick={()=>void remove(team)}>Eliminar</button>
+              <button type="button" className={control} disabled={disabled} onClick={() => setRosterId(current => current === team.id ? null : team.id)}>{rosterId === team.id ? 'Cerrar plantilla' : 'Jugadores'}</button>
             </div>
           </>}
+          {rosterId === team.id && <TeamPlayers key={team.id} teamId={team.id} teamName={team.name}/>}
         </li>)}
       </ul>
     </div>

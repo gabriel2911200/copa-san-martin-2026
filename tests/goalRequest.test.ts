@@ -32,3 +32,12 @@ test('un fallo de persistencia se propaga antes de enviar la solicitud', () => {
   const broken = { setItem: () => { throw Error('Storage unavailable') }, removeItem: () => {} }
   assert.throws(() => saveGoalRequest(broken, 'match', { teamId: 'team', requestId: 'request' }))
 })
+
+test('reintento conserva jugador y tipo de evento después de recargar', () => {
+  const session = storage()
+  for (const eventType of ['GOAL','YELLOW_CARD','RED_CARD','FOUL','TIMEOUT'] as const) {
+    const event = { teamId: 'a', playerId: ['GOAL','YELLOW_CARD','RED_CARD'].includes(eventType) ? 'p' : undefined, requestId: crypto.randomUUID(), eventType }
+    saveGoalRequest(session, 'm', event)
+    assert.deepEqual(loadGoalRequest(session, 'm'), JSON.parse(JSON.stringify(event)))
+  }
+})

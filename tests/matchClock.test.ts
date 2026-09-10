@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { availableActions, elapsedSeconds, formatClock } from '../src/lib/matchClock.ts'
+import { availableActions, clockAt, elapsedSeconds, formatClock, isPhaseEnding, timeoutSeconds } from '../src/lib/matchClock.ts'
 import type { ClockState } from '../src/lib/matchClock.ts'
 
 const start = Date.parse('2026-09-05T12:00:00Z')
@@ -25,16 +25,55 @@ test('limita primer tiempo, descanso y segundo tiempo tras cerrar la pestaña', 
   assert.equal(formatClock(900), '15:00')
   assert.equal(formatClock(300), '05:00')
 })
-test('acciones de avance solo aparecen al completar cada fase', () => {
-  assert.deepEqual(availableActions(running, 899), ['PAUSE'])
-  assert.deepEqual(availableActions(running, 900), ['PAUSE', 'BREAK'])
-  assert.deepEqual(availableActions({ ...running, status: 'DESCANSO' }, 300), ['PAUSE', 'SECOND_HALF'])
-  assert.deepEqual(availableActions({ ...running, status: 'SEGUNDO_TIEMPO' }, 900), ['PAUSE', 'FINISH'])
-  assert.deepEqual(availableActions({ ...running, status: 'PAUSADO' }, 20), ['RESUME'])
-  assert.deepEqual(availableActions({ ...running, status: 'FINALIZADO' }, 900), [])
-  assert.deepEqual(availableActions({ ...running, status: 'PROGRAMADO' }, 0), ['START'])
+test('acciones permiten cortar cada fase y conservan restricciones de estado', () => {
+  assert.deepEqual(availableActions(running), ['PAUSE', 'BREAK'])
+  assert.deepEqual(availableActions({ ...running, status: 'DESCANSO' }), ['PAUSE', 'SECOND_HALF'])
+  assert.deepEqual(availableActions({ ...running, status: 'SEGUNDO_TIEMPO' }), ['PAUSE', 'FINISH'])
+  assert.deepEqual(availableActions({ ...running, status: 'PAUSADO' }), ['RESUME'])
+  assert.deepEqual(availableActions({ ...running, status: 'FINALIZADO' }), [])
+  assert.deepEqual(availableActions({ ...running, status: 'PROGRAMADO' }), ['START'])
 })
 test('inicio futuro no genera segundos negativos y finalizado queda congelado', () => {
   assert.equal(elapsedSeconds(running, start - 10000), 12)
   assert.equal(elapsedSeconds({ ...running, status: 'FINALIZADO', phase_elapsed_seconds: 900, phase_started_at: null }, start + 999999), 900)
+})
+
+test('aviso en los últimos 30 segundos de cada fase, nunca pausado ni finalizado', () => {
+  for (const status of ['PRIMER_TIEMPO', 'DESCANSO', 'SEGUNDO_TIEMPO'] as const) {
+    const match = { ...running, status }
+    const limit = status === 'DESCANSO' ? 300 : 900
+    assert.equal(isPhaseEnding(match, limit - 31), false)
+    assert.equal(isPhaseEnding(match, limit - 30), true)
+    assert.equal(isPhaseEnding(match, limit - 1), true)
+    assert.equal(isPhaseEnding(match, limit), false)
+    assert.equal(isPhaseEnding({ ...match, status: 'PAUSADO', paused_from_status: status }, limit - 20), false)
+  }
+  assert.equal(isPhaseEnding({ ...running, status: 'FINALIZADO' }, 880), false)
+  assert.equal(isPhaseEnding({ ...running, status: 'PROGRAMADO' }, 880), false)
+})
+
+test('tiempo muerto congela el partido y vence exactamente a los 60 segundos en ambos tiempos', () => {
+  for (const phase of ['PRIMER_TIEMPO', 'SEGUNDO_TIEMPO'] as const) {
+    const match: ClockState = { status: 'TIEMPO_MUERTO', paused_from_status: phase,
+      phase_elapsed_seconds: 515, phase_started_at: null, timeout_started_at: new Date(start).toISOString(), timeout_team_id: 'a' }
+    assert.equal(elapsedSeconds(match, start + 25000), 515)
+    assert.equal(elapsedSeconds(match, start + 59999), 515)
+    assert.equal(timeoutSeconds(match, start + 25000), 25)
+    assert.equal(timeoutSeconds(match, start + 999999), 60)
+    assert.equal(clockAt(match, start + 59999).status, 'TIEMPO_MUERTO')
+    assert.equal(clockAt(match, start + 60000).status, phase)
+    assert.equal(elapsedSeconds(match, start + 60000), 515)
+    assert.equal(elapsedSeconds(match, start + 61000), 516)
+    assert.equal(elapsedSeconds(JSON.parse(JSON.stringify(match)), start + 90000), 545)
+    assert.equal(elapsedSeconds(match, start + 999999), 900)
+    assert.deepEqual(availableActions(match), ['END_TIMEOUT'])
+    assert.equal(isPhaseEnding(match, 880), false)
+  }
+})
+
+test('finalizar manualmente conserva el acumulado y reanuda desde la nueva marca de servidor', () => {
+  const resumed: ClockState = { status: 'SEGUNDO_TIEMPO', paused_from_status: null,
+    phase_elapsed_seconds: 515, phase_started_at: new Date(start + 25000).toISOString(), timeout_started_at: null }
+  assert.equal(elapsedSeconds(resumed, start + 25000), 515)
+  assert.equal(elapsedSeconds(resumed, start + 26000), 516)
 })

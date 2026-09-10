@@ -14,7 +14,10 @@ test('público sin actualizar ni enlaces redundantes y Top 4 por posición en am
     await expect(page.locator('tr.qualification-zone')).toHaveCount(4)
     expect(await page.locator('tr.qualification-zone>td:first-child').allTextContents()).toEqual(['1','2','3','4'])
     const size=await page.locator('.standings-tabs').boundingBox()
-    expect(size!.width).toBeLessThan(260)
+    const main=await page.locator('.app-main').boundingBox()
+    expect(size!.width).toBeLessThanOrEqual(main!.width)
+    await expect(page.locator('.standings-tabs')).toHaveCSS('border-radius','16px')
+    await expect(page.locator('.standings-tabs button').first()).toHaveCSS('font-size','13px')
     await page.screenshot({path:`test-results/tabla-${category}.png`,fullPage:true})
   }
 })

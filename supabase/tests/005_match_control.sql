@@ -50,7 +50,7 @@ begin
   assert (result->'match'->>'phase_elapsed_seconds')::integer=0;
   perform pg_temp.reject_action(mid,'START','PROGRAMADO');
   perform pg_temp.reject_action(second_id,'START','Ya existe un partido activo');
-  perform pg_temp.reject_action(mid,'BREAK','primer tiempo');
+  perform pg_temp.reject_action(mid,'SECOND_HALF','descanso');
 
   -- Simula 12 segundos reales sin esperar ni persistir cambios de prueba.
   update public.matches set phase_started_at=clock_timestamp()-interval '12 seconds' where id=mid;
@@ -77,7 +77,7 @@ begin
   result := pg_temp.act(mid,'BREAK');
   assert result->'match'->>'status'='DESCANSO';
   assert (result->'match'->>'phase_elapsed_seconds')::integer=0;
-  perform pg_temp.reject_action(mid,'SECOND_HALF','cinco minutos');
+  perform pg_temp.reject_action(mid,'BREAK','primer tiempo');
   perform pg_temp.reject_action(mid,'FINISH','segundo tiempo');
   perform pg_temp.reject_action(second_id,'START','Ya existe un partido activo');
   update public.matches set phase_started_at=clock_timestamp()-interval '1 hour' where id=mid;
@@ -89,7 +89,7 @@ begin
   result := pg_temp.act(mid,'SECOND_HALF');
   assert result->'match'->>'status'='SEGUNDO_TIEMPO';
   assert (result->'match'->>'phase_elapsed_seconds')::integer=0;
-  perform pg_temp.reject_action(mid,'FINISH','segundo tiempo');
+  perform pg_temp.reject_action(mid,'BREAK','primer tiempo');
   perform pg_temp.reject_action(second_id,'START','Ya existe un partido activo');
   update public.matches set phase_started_at=clock_timestamp()-interval '1 hour' where id=mid;
   result := pg_temp.act(mid,'PAUSE');

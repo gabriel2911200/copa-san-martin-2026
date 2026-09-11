@@ -6,7 +6,7 @@ import DeleteMatchButton from './DeleteMatchButton'
 import { useTournament } from './lib/useTournament'
 import { clockAt, elapsedSeconds, formatClock, timeoutSeconds } from './lib/matchClock'
 import { currentPeriod } from './lib/matchEvents'
-import { featuredMatch, isActive, podium, stageLabels, teamName } from './lib/tournament'
+import { isActive, podium, stageLabels, teamName } from './lib/tournament'
 import type { PublicMatch, Tournament } from './lib/tournament'
 import type { LiveChange } from './lib/useLiveRefresh'
 
@@ -84,14 +84,19 @@ export function InicioPage() {
     const timer=setTimeout(()=>setCelebration(''),4000)
     return ()=>clearTimeout(timer)
   },[celebration])
-  const featured=data && featuredMatch(data.matches)
+  const featured=data?.matches.find(isActive)
+  const upcoming=data?.matches.filter(m=>m.match.status==='PROGRAMADO').sort((a,b)=>(a.match.scheduled_date??'9999').localeCompare(b.match.scheduled_date??'9999')||(a.match.scheduled_time??'99').localeCompare(b.match.scheduled_time??'99')||a.match.id.localeCompare(b.match.id)) ?? []
   const latest = data?.matches.filter(m=>m.match.status==='FINALIZADO').sort((a,b)=>b.match.updated_at.localeCompare(a.match.updated_at))[0]
   return <div className="space-y-6">
     <section className="hero"><div><p className="eyebrow">LA PASIÓN NOS UNE</p><h1>Copa Martín <span>2026</span></h1><p>El campeonato se vive aquí.</p></div><img src="/brand/copa.png" alt="Logo oficial Copa Martín"/></section>
     {celebration && <div role="status" className="rounded-xl bg-green-100 p-6 text-center text-2xl font-bold text-green-900">¡GOOOL!<br/>{celebration}</div>}
     {loading && <p role="status">Cargando campeonato…</p>}
     {error && <p role="alert">{error}</p>}
-    {featured ? <><h2 className="text-xl font-bold">{isActive(featured)?'EN VIVO':'Próximo partido'}</h2><PublicMatchCard item={featured} clock /></> : !loading && <p>No hay partidos activos ni programados.</p>}
+    {featured && <><h2 className="text-xl font-bold">EN VIVO</h2><PublicMatchCard item={featured} clock /></>}
+    <section aria-label="Próximos partidos" className="space-y-4"><h2>PRÓXIMOS PARTIDOS</h2>
+      <div className="calendar-grid">{upcoming.map(item=><PublicMatchCard key={item.match.id} item={item}/>)}</div>
+      {!loading && !upcoming.length && <p>No hay partidos programados pendientes.</p>}
+    </section>
     {!featured && latest && <><h2>Último resultado</h2><PublicMatchCard item={latest}/></>}
     {data?.categories.map(c=><div key={c.id} className="space-y-4">
       <Podium data={data} categoryId={c.id}/>

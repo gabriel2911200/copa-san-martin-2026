@@ -11,13 +11,14 @@ function Modal({ title, children, onDismiss }: { title: string; children: ReactN
   </dialog>
 }
 
-export function PreMatchCheck({ home, away, busy, error, onSave }: {
+export function PreMatchCheck({ home, away, busy, error, onSave, initial, onDismiss }: {
   home: string; away: string; busy: boolean; error: string
   onSave: (values: Precheck) => void
+  initial?: Precheck | null; onDismiss?: () => void
 }) {
-  const [answers, setAnswers] = useState<Partial<Precheck>>({})
+  const [answers, setAnswers] = useState<Partial<Precheck>>(initial ?? {})
   const complete = ['home_ball','home_band','away_ball','away_band'].every(key => typeof answers[key as keyof Precheck] === 'boolean')
-  return <Modal title="CONTROL PREVIO DEL PARTIDO">
+  return <Modal title="CONTROL PREVIO DEL PARTIDO" onDismiss={busy ? undefined : onDismiss}>
     <form onSubmit={e => { e.preventDefault(); if (complete) onSave(answers as Precheck) }}>
       {(['home','away'] as const).map(side => <section key={side} aria-label={side === 'home' ? home : away}>
         <h3>{side === 'home' ? home : away}</h3>
@@ -31,6 +32,8 @@ export function PreMatchCheck({ home, away, busy, error, onSave }: {
       </section>)}
       {error && <p role="alert">{error}</p>}
       <button type="submit" disabled={busy || !complete}>Guardar control previo</button>
+      {!complete && <p>Completa las cuatro respuestas para iniciar el partido.</p>}
+      {onDismiss && <button type="button" disabled={busy} onClick={onDismiss}>Cancelar</button>}
     </form>
   </Modal>
 }

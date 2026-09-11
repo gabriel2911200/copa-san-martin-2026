@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 
 import { supabase } from './lib/supabase'
 
@@ -13,7 +12,6 @@ const control = 'min-h-12 w-full min-w-0 rounded-lg border border-slate-300 bg-w
 const labels: Record<string, string> = { REGULAR: 'Regular', SEMIFINAL: 'Semifinal', THIRD_PLACE: 'Tercer puesto', FINAL: 'Final' }
 
 export default function AdminPage() {
-  const navigate = useNavigate()
   const [categories, setCategories] = useState<Category[]>([])
   const [days, setDays] = useState<Day[]>([])
   const [teams, setTeams] = useState<Team[]>([])
@@ -70,7 +68,8 @@ export default function AdminPage() {
       const result = await supabase.from('matches').insert({ category_id: category, matchday_id: day, home_team_id: home, away_team_id: away, stage, status: 'PROGRAMADO', scheduled_date: date||null, scheduled_time: time||null }).select(fields).single()
       if (result.error) throw result.error
       if (!result.data?.id) throw Error('No se recibió el ID del partido')
-      navigate(`/admin/partidos/${result.data.id}`)
+      setSuccess('Partido programado correctamente. Puedes crear otro partido.')
+      setHome(''); setAway('')
     } catch (err) {
       const code = (err as { code?: string })?.code
       setError(code === '23505' ? 'Ya existe exactamente este partido en la jornada seleccionada.' : code === '42501' ? 'No se pudo crear: verifica que los equipos sigan activos y la etapa corresponda a la jornada. Actualiza los datos.' : 'No se pudo confirmar la creación. Actualiza la lista antes de volver a intentarlo.')

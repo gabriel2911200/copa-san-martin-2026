@@ -49,6 +49,7 @@ function MatchController({ id }: { id: string }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [startRequested, setStartRequested] = useState(false)
   const [precheckError, setPrecheckError] = useState('')
   const [synced, setSynced] = useState(false)
   const lock = useRef(false)
@@ -110,7 +111,8 @@ function MatchController({ id }: { id: string }) {
   }, [refresh])
 
   const act = useCallback(async (action: ControlAction) => {
-    if (!snapshot || !synced || lock.current || pendingGoal || (action === 'START' && !snapshot.precheck)) return
+    if (!snapshot || !synced || lock.current || pendingGoal) return
+    if (action === 'START') { setPrecheckError(''); setStartRequested(true); return }
     lock.current = true; request.current++
     setSaving(true); setError(''); setSuccess('')
     const start = performance.now()
@@ -241,7 +243,21 @@ function MatchController({ id }: { id: string }) {
       }
       if (result.error) throw result.error
       if (!result.data) throw Error('Respuesta vacía')
-      if (mounted.current) { accept(result.data as Snapshot, start); setSuccess('Control previo guardado correctamente') }
+      let saved = result.data as Snapshot
+      if (saved.match.status === 'PROGRAMADO') {
+        const started = await supabase.rpc('control_match', { p_match_id: id, p_action: 'START', p_expected_updated_at: saved.match.updated_at })
+        if (started.error || !started.data) {
+          // Una respuesta perdida no debe iniciar por segunda vez ni reiniciar el reloj.
+          const fresh = await supabase.rpc('get_match_control', { p_match_id: id })
+          if (!fresh.error && fresh.data && fresh.data.match.status !== 'PROGRAMADO') saved = fresh.data as Snapshot
+          else {
+            if (mounted.current) accept(saved, start)
+            throw started.error ?? Error('No se pudo confirmar el inicio')
+          }
+        } else saved = started.data as Snapshot
+      }
+      if (saved.match.status === 'PROGRAMADO') throw Error('El partido todavía no inició')
+      if (mounted.current) { accept(saved, start); setStartRequested(false); setSuccess('Control previo guardado correctamente. Partido iniciado.') }
     } catch (err) {
       if (mounted.current) {
         const failure = err as { code?: string; message?: string }
@@ -288,9 +304,9 @@ function MatchController({ id }: { id: string }) {
     <h1>Control del partido</h1>
     {loading && <p role="status">Cargando partido…</p>}
     {error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-red-800">{error}</p>}
-    {!synced && !loading && !(snapshot?.match.status === 'PROGRAMADO' && !snapshot.precheck) && <button className="min-h-12 rounded-lg border p-3" disabled={saving} onClick={() => void refresh()}>Actualizar partido</button>}
+    {!synced && !loading && !startRequested && <button className="min-h-12 rounded-lg border p-3" disabled={saving} onClick={() => void refresh()}>Actualizar partido</button>}
     {snapshot && match && <>
-      {match.status === 'PROGRAMADO' && !snapshot.precheck && <PreMatchCheck key={`${match.home_team_id}:${match.away_team_id}`} home={snapshot.home} away={snapshot.away} busy={saving} error={precheckError} onSave={values => void savePrecheck(values)}/>}
+      {match.status === 'PROGRAMADO' && startRequested && <PreMatchCheck initial={snapshot.precheck} onDismiss={() => setStartRequested(false)} key={`${match.home_team_id}:${match.away_team_id}`} home={snapshot.home} away={snapshot.away} busy={saving} error={precheckError} onSave={values => void savePrecheck(values)}/>}
       <CollectionReminder status={match.status} home={snapshot.home} away={snapshot.away} homeId={match.home_team_id} awayId={match.away_team_id} precheck={snapshot.precheck} events={snapshot.events ?? []}/>
       <p>{snapshot.category} · Fecha {snapshot.matchday} · {stageLabels[match.stage] ?? match.stage}</p>
       <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-center">
@@ -358,7 +374,7 @@ function MatchController({ id }: { id: string }) {
         {[['home',match.home_team_id],['away',match.away_team_id]].map(([side,teamId])=><button key={teamId} disabled={saving||!synced||!!pendingGoal} className="min-h-12 w-full rounded-lg border bg-white p-3 disabled:opacity-50" onClick={()=>void choosePenalty(teamId)}>{side==='home'?snapshot.home:snapshot.away}</button>)}
       </section>}
       <div className="space-y-3" aria-busy={saving}>
-        {availableActions(match).map(action => <button key={action} disabled={saving || !synced || !!pendingGoal || (action==='START' && !snapshot.precheck) || (action==='FINISH' && match.stage!=='REGULAR' && snapshot.score.home===snapshot.score.away && !match.tiebreak_winner_team_id)} onClick={() => void act(action)} className="min-h-14 w-full rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{actionLabels[action]}</button>)}
+        {availableActions(match).map(action => <button key={action} disabled={saving || !synced || !!pendingGoal || (action==='FINISH' && match.stage!=='REGULAR' && snapshot.score.home===snapshot.score.away && !match.tiebreak_winner_team_id)} onClick={() => void act(action)} className="min-h-14 w-full rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{actionLabels[action]}</button>)}
       </div>
       <p role="status" className="text-green-800">{saving ? 'Guardando…' : success}</p>
       {match.status !== 'PROGRAMADO' && <section className="live-match-stats" aria-label="Estadísticas del partido en vivo">

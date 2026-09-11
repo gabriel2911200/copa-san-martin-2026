@@ -64,10 +64,9 @@ test('crear envía agenda individual sin escribir datos reales',async({page})=>{
   await page.getByRole('combobox',{name:'Equipo local',exact:true}).selectOption({label:'San Judas'})
   await page.getByRole('combobox',{name:'Equipo visitante',exact:true}).selectOption({label:'San Pablo'})
   await page.getByRole('button',{name:'Crear partido',exact:true}).click()
-  await expect(page).toHaveURL(/\/admin\/partidos\/simulated$/)
-  await expect(page.getByRole('heading',{name:'Control del partido'})).toBeVisible()
-  await expect(page.getByRole('button',{name:'INICIAR PARTIDO',exact:true})).toBeDisabled()
-  await expect(page.getByRole('dialog',{name:'CONTROL PREVIO DEL PARTIDO'})).toBeVisible()
+  await expect(page).toHaveURL(/\/admin\/crear$/)
+  await expect(page.getByText('Partido programado correctamente. Puedes crear otro partido.')).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   expect(created).toBe(true)
 })
 

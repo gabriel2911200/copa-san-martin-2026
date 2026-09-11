@@ -36,6 +36,7 @@ test('fallo de control previo conserva SI/NO y permite guardar sin actualizar ni
   const data=fixture()
   let available=false
   await page.route('**/rest/v1/**', route=>{
+    if(route.request().url().endsWith('/control_match')) { data.match.status='PRIMER_TIEMPO'; data.match.phase_started_at=base }
     if(route.request().url().endsWith('/save_match_precheck')) {
       if(!available) return route.fulfill({status:404,json:{code:'PGRST202',message:'Missing function'}})
       data.precheck={home_ball:true,home_band:false,away_ball:true,away_band:false}
@@ -43,6 +44,7 @@ test('fallo de control previo conserva SI/NO y permite guardar sin actualizar ni
     return route.fulfill({json:data})
   })
   await page.goto('/admin/partidos/m')
+  await page.getByRole('button',{name:'INICIAR PARTIDO',exact:true}).click()
   const dialog=page.getByRole('dialog',{name:'CONTROL PREVIO DEL PARTIDO'})
   await expect(dialog).toBeVisible()
   const groups=dialog.getByRole('group')
@@ -72,6 +74,7 @@ for (const failure of ['stale', 'lost-response']) test(`control previo recupera 
   const data = fixture()
   let saves = 0
   await page.route('**/rest/v1/**', route => {
+    if (route.request().url().endsWith('/control_match')) { data.match.status='PRIMER_TIEMPO'; data.match.phase_started_at=base }
     if (route.request().url().endsWith('/save_match_precheck')) {
       saves++
       if (saves === 1) {
@@ -88,6 +91,7 @@ for (const failure of ['stale', 'lost-response']) test(`control previo recupera 
     return route.fulfill({json:data})
   })
   await page.goto('/admin/partidos/m')
+  await page.getByRole('button',{name:'INICIAR PARTIDO',exact:true}).click()
   const dialog = page.getByRole('dialog',{name:'CONTROL PREVIO DEL PARTIDO'})
   await expect(dialog).toBeVisible()
   await expect(dialog.getByRole('button',{name:'SI',exact:true})).toHaveCount(4)
@@ -129,6 +133,8 @@ test('control previo persistido, cobros por periodo, roja sin pausa y doble amar
     return route.fulfill({json:data})
   })
   await page.goto('/admin/partidos/m')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.getByRole('button',{name:'INICIAR PARTIDO',exact:true}).click()
   const check=page.getByRole('dialog',{name:'CONTROL PREVIO DEL PARTIDO'})
   await expect(check).toBeVisible()
   await expect(check.getByRole('button',{name:'Guardar control previo'})).toBeDisabled()
@@ -140,9 +146,9 @@ test('control previo persistido, cobros por periodo, roja sin pausa y doble amar
   await check.getByRole('button',{name:'Guardar control previo'}).click()
   await expect(check).toHaveCount(0)
   await page.reload()
-  await expect(page.getByRole('button',{name:'INICIAR PARTIDO'})).toBeEnabled()
+  await expect(page.getByRole('button',{name:'INICIAR PARTIDO'})).toHaveCount(0)
   await expect(check).toHaveCount(0)
-  await page.getByRole('button',{name:'INICIAR PARTIDO'}).click()
+  await expect(page.getByRole('button',{name:'Terminar primer tiempo',exact:true})).toBeEnabled()
   async function card(action:string,team:string,player:string) {
     await page.getByRole('button',{name:`${action} ${team}`,exact:true}).click()
     await page.getByRole('region',{name:'Seleccionar jugador'}).getByRole('button',{name:player,exact:true}).click()

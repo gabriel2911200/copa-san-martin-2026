@@ -2,12 +2,14 @@ import type { PublicMatch } from './lib/tournament'
 import { doubleYellows, eventLabels, matchTimeline } from './lib/matchEvents'
 import { formatClock } from './lib/matchClock'
 import EventRevertMenu from './EventRevertMenu'
+import ControlEventMenu from './ControlEventMenu'
 import { supabase } from './lib/supabase'
 import type { MatchEvent } from './lib/matchEvents'
 
-export function MatchTimeline({ item, onRevert, disabled = false }: {
+export function MatchTimeline({ item, onRevert, onEdit, disabled = false }: {
   item: { home: string; away: string; match: { home_team_id: string }; goals: MatchEvent[]; events?: MatchEvent[] }
   onRevert?: (id: string) => Promise<void>; disabled?: boolean
+  onEdit?: (event: MatchEvent) => void
 }) {
   const timeline = matchTimeline(item.goals,item.events,!!onRevert)
   const expulsions = new Set(doubleYellows(timeline).map(e=>e.id))
@@ -19,7 +21,9 @@ export function MatchTimeline({ item, onRevert, disabled = false }: {
           <div><p>{event.type==='TIMEOUT' ? '⏸ Minuto' : event.type==='GOAL' ? '⚽' : event.type==='YELLOW_CARD' ? '🟨' : '🟥'} {event.player_name ? `${event.shirt_number != null ? `#${event.shirt_number} ` : ''}${event.player_name}` : event.type==='GOAL' ? 'Gol sin jugador registrado' : ''}</p>
             {expulsions.has(event.id) && <p className="fouls-red">🟨 + 🟨 = 🟥 Expulsado por doble amarilla</p>}
           </div>
-          {onRevert && <EventRevertMenu label={`Opciones de ${eventLabels[event.type ?? 'GOAL']} ${event.player_name ?? ''}`} disabled={disabled} onRevert={()=>onRevert(event.id)}/>}
+          {onRevert && (onEdit && ['GOAL','YELLOW_CARD','RED_CARD'].includes(event.type ?? 'GOAL')
+            ? <ControlEventMenu label={`Opciones de ${eventLabels[event.type ?? 'GOAL']} ${event.player_name ?? ''}`} disabled={disabled} onEdit={event.player_id ? () => onEdit(event) : undefined} onVoid={()=>onRevert(event.id)}/>
+            : <EventRevertMenu label={`Opciones de ${eventLabels[event.type ?? 'GOAL']} ${event.player_name ?? ''}`} disabled={disabled} onRevert={()=>onRevert(event.id)}/>)}
         </div>
       </li>)}
     </ol>

@@ -1,3 +1,4 @@
+import EditEventPlayer from './EditEventPlayer'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from './lib/supabase'
@@ -49,6 +50,7 @@ function MatchController({ id }: { id: string }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [editingEvent, setEditingEvent] = useState<MatchEvent | null>(null)
   const [startRequested, setStartRequested] = useState(false)
   const [precheckError, setPrecheckError] = useState('')
   const [synced, setSynced] = useState(false)
@@ -186,6 +188,18 @@ function MatchController({ id }: { id: string }) {
       }
     } finally { lock.current = false; if (mounted.current) setSaving(false) }
   }, [snapshot, synced, pendingGoal, id, accept])
+
+  const editEventPlayer = async (playerId: string) => {
+    if (!editingEvent || !supabase || lock.current || !synced || pendingGoal) throw Error('Actualiza el partido antes de editar.')
+    lock.current=true; request.current++; setSaving(true)
+    const start=performance.now()
+    try {
+      const result=await supabase.rpc('edit_match_event_player', {p_match_id:id,p_event_id:editingEvent.id,p_player_id:playerId,p_expected_player_id:editingEvent.player_id})
+      if(result.error) throw Error(result.error.code==='P0001' ? result.error.message : 'No se pudo confirmar la edición. Puedes reintentar.')
+      if(!result.data?.control) throw Error('No se pudo confirmar la edición. Puedes reintentar.')
+      if(mounted.current) {accept(result.data.control as Snapshot,start);setEditingEvent(null);setSuccess('Jugador del evento corregido.')}
+    } finally {lock.current=false;if(mounted.current)setSaving(false)}
+  }
 
   const choosePenalty = useCallback(async (teamId: string) => {
     if(lock.current || !synced || pendingGoal) return
@@ -329,6 +343,7 @@ function MatchController({ id }: { id: string }) {
         {ending && <p role="alert" className="rounded-lg bg-amber-100 p-4 font-semibold text-amber-900">Quedan 30 segundos o menos para {phase === 'DESCANSO' ? 'finalizar el descanso' : 'terminar el tiempo'}.</p>}
         {fulfilled && <p role="status" className="font-semibold text-blue-800">{phase === 'DESCANSO' ? 'Descanso cumplido' : 'Tiempo cumplido'}</p>}
       </section>
+      {editingEvent && <EditEventPlayer event={editingEvent} busy={saving} onSave={editEventPlayer} onClose={()=>setEditingEvent(null)} players={(snapshot.lineup ?? []).filter(p=>p.active && p.team_id===editingEvent.team_id && !playerUnavailable((snapshot.events ?? []).filter(e=>e.id!==editingEvent.id),p.id))}/>}
       <MatchLineup homeId={match.home_team_id} awayId={match.away_team_id} home={snapshot.home} away={snapshot.away} players={(snapshot.players ?? []).filter(p => !playerUnavailable(snapshot.events ?? [], p.id))} lineup={(snapshot.lineup ?? []).filter(p => !playerUnavailable(snapshot.events ?? [], p.id))} disabled={saving || !synced || !!pendingGoal || match.status === 'FINALIZADO'} onSave={saveLineup} onOwnGoal={() => { setSelection(null); setOwnGoalSelection(value => !value) }} ownGoalDisabled={saving || !synced || !!pendingGoal || !rosterReady || !['PRIMER_TIEMPO','SEGUNDO_TIEMPO'].includes(match.status)}/>
       {!rosterReady && match.status !== 'FINALIZADO' && <p>Completa la convocatoria de ambos equipos para habilitar goles, tarjetas y eventos.</p>}
       {pendingGoal && <div className="space-y-3 rounded-lg bg-amber-50 p-4">
@@ -379,7 +394,7 @@ function MatchController({ id }: { id: string }) {
       <p role="status" className="text-green-800">{saving ? 'Guardando…' : success}</p>
       {match.status !== 'PROGRAMADO' && <section className="live-match-stats" aria-label="Estadísticas del partido en vivo">
         <h2>ESTADÍSTICAS EN VIVO</h2>
-        <MatchTimeline item={snapshot} disabled={saving || !synced || !!pendingGoal} onRevert={eventId => goalOperation(undefined, eventId)}/>
+        <MatchTimeline item={snapshot} onEdit={match.status !== 'FINALIZADO' ? setEditingEvent : undefined} disabled={saving || !synced || !!pendingGoal} onRevert={eventId => goalOperation(undefined, eventId)}/>
       </section>}
     </>}
   </div>

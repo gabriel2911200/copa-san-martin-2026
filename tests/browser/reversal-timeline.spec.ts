@@ -96,7 +96,7 @@ for(const publicView of [false,true]) test(`${publicView?'Inicio público':'Cont
     expect(fouls!.y+fouls!.height).toBeLessThanOrEqual(score!.y)
   } else {
     await stats.getByRole('button',{name:'Opciones de ⚽ Gol Juan Pérez'}).click()
-    await expect(stats.getByRole('button',{name:'Revertir evento'})).toBeVisible()
+    await expect(stats.getByRole('button',{name:'ANULAR',exact:true})).toBeVisible()
   }
 })
 
@@ -138,7 +138,8 @@ test('revertir roja recupera jugador; revertir minuto reanuda reloj y devuelve s
   const lineup=page.getByRole('region',{name:'Convocatoria de Santa Ana',exact:true})
   await expect(lineup.getByText('#5 Juan Pérez',{exact:true})).toHaveCount(0)
   await page.getByRole('button',{name:'Opciones de 🟥 Roja Juan Pérez',exact:true}).click()
-  await page.getByRole('button',{name:'Revertir evento',exact:true}).click()
+  await page.getByRole('button',{name:'ANULAR',exact:true}).click()
+  await page.getByRole('dialog',{name:'Anular evento'}).getByRole('button',{name:'Anular',exact:true}).click()
   await expect(lineup.getByText('#5 Juan Pérez',{exact:true})).toBeVisible()
   expect(data.players[0].active).toBe(true)
   await page.getByRole('button',{name:'MINUTO LOCAL',exact:true}).click()

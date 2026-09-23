@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MatchDetails, { MatchTimeline } from './MatchDetails'
 import MatchStats from './MatchStats'
+import PenaltyShootout from './PenaltyShootout'
 import ScheduleEditor from './ScheduleEditor'
 import DeleteMatchButton from './DeleteMatchButton'
 import { useTournament } from './lib/useTournament'
 import { clockAt, elapsedSeconds, formatClock, timeoutSeconds } from './lib/matchClock'
 import { currentPeriod } from './lib/matchEvents'
-import { isActive, podium, stageLabels, teamName } from './lib/tournament'
+import { isActive, podium, matchStageLabel, teamName } from './lib/tournament'
 import type { PublicMatch, Tournament } from './lib/tournament'
 import type { LiveChange } from './lib/useLiveRefresh'
 
@@ -25,10 +26,10 @@ export function PublicMatchCard({ item, clock = false, statistics = false, refre
   const inTimeout = displayMatch.status === 'TIEMPO_MUERTO'
   const penalty = item.match.tiebreak_winner_team_id
   return <article className={`match-card ${clock?'featured-match':''}`}>
-    <div className="match-meta"><span>{item.category} · Fecha {item.matchday}</span><span>{stageLabels[item.match.stage]}</span></div>
+    <div className="match-meta"><span>{matchStageLabel(item)} · {item.category.toUpperCase()}</span><span>Fecha {item.matchday}</span></div>
     {isActive(item) && <MatchStats match={displayMatch} fouls={item.fouls} events={item.events} home={item.home} away={item.away}/>}
     <div className="score-line"><p>{item.home}</p><strong className={item.match.status==='PROGRAMADO'?'scheduled-score':''}>{item.match.status==='PROGRAMADO'?'Programado':`${item.score.home} - ${item.score.away}`}</strong><p>{item.away}</p></div>
-    <div className="match-status"><span className={isActive(item)&&!inTimeout?'live-dot':''}>{inTimeout?`En vivo · ${currentPeriod(displayMatch)}T`:isActive(item)?`En vivo · ${displayMatch.status.replaceAll('_',' ')}`:item.match.status==='FINALIZADO'?'Resultado final':'Pendiente de inicio'}</span>
+    <div className="match-status"><span className={isActive(item)&&!inTimeout?'live-dot':''}>{item.shootout && !item.shootout.completed_at ? 'En vivo · PENALES' : inTimeout?`En vivo · ${currentPeriod(displayMatch)}T`:isActive(item)?`En vivo · ${displayMatch.status.replaceAll('_',' ')}`:item.match.status==='FINALIZADO'?'Resultado final':'Pendiente de inicio'}</span>
       {(clock||inTimeout)&&isActive(item)&&<p role="timer" aria-label="Cronómetro">{formatClock(elapsedSeconds(displayMatch,now))}</p>}
     </div>
     {inTimeout && <div className="public-timeout" role="region" aria-label="Minuto en curso">
@@ -38,7 +39,9 @@ export function PublicMatchCard({ item, clock = false, statistics = false, refre
       <p role="timer" aria-label="Contador de minuto">{formatClock(60 - timeoutSeconds(displayMatch,now))}</p>
     </div>}
     <p className="schedule-line">{item.match.scheduled_date?item.match.scheduled_date.split('-').reverse().join('/'):'Fecha individual por confirmar'} · {item.match.scheduled_time?.slice(0,5)??'Hora por confirmar'} <small>Tarija</small></p>
-    {penalty&&item.score.home===item.score.away&&<p className="penalty-label">{teamName(item,penalty)} gana por penales</p>}
+    {item.match.walkover_loser_team_id && <p className="penalty-label">Resultado oficial · Walkover (W.O.)</p>}
+    {penalty&&!item.shootout&&item.score.home===item.score.away&&<p className="penalty-label">{teamName(item,penalty)} gana por penales</p>}
+    <PenaltyShootout item={item} editable={!!refresh} onChange={async () => { await refresh?.() }}/>
     {(statistics || (!clock && item.match.status !== 'PROGRAMADO')) && <MatchDetails item={item} refresh={refresh}/>}
     {clock && isActive(item) && !statistics && <section className="live-match-stats p-3" aria-label="Estadísticas del partido">
       <h2>ESTADÍSTICAS DEL PARTIDO</h2>
@@ -101,7 +104,7 @@ export function InicioPage() {
     {data?.categories.map(c=><div key={c.id} className="space-y-4">
       <Podium data={data} categoryId={c.id}/>
       {c.regular_closed_at && <><h2 className="text-xl font-bold">Fase eliminatoria · {c.name}</h2>
-        {data.matches.filter(m=>m.match.category_id===c.id && m.match.stage!=='REGULAR').map(m=><PublicMatchCard key={m.match.id} item={m}/>)}
+        {data.matches.filter(m=>m.match.category_id===c.id && m.match.stage!=='REGULAR' && m.match.status==='FINALIZADO' && (featured || m.match.id!==latest?.match.id)).map(m=><PublicMatchCard key={m.match.id} item={m}/>)}
         {!data.matches.some(m=>m.match.category_id===c.id && m.match.stage!=='REGULAR') && <p>Clasificados definidos. Cruces pendientes.</p>}
       </>}
     </div>)}

@@ -1,3 +1,4 @@
+import EventDialog from './EventDialog'
 import { useEffect, useRef, useState } from 'react'
 
 export default function ControlEventMenu({ label, disabled, onEdit, onVoid }: { label: string; disabled: boolean; onEdit?: () => void; onVoid: () => Promise<void> }) {
@@ -17,11 +18,10 @@ export default function ControlEventMenu({ label, disabled, onEdit, onVoid }: { 
       {onEdit && <button onClick={() => { setOpen(false); onEdit() }}>EDITAR</button>}
       <button onClick={() => { setOpen(false); setConfirm(true) }}>ANULAR</button>
     </div>}
-    {confirm && <div className="event-revert-options" role="dialog" aria-label="Anular evento">
+    {confirm && <EventDialog title="Anular evento" busy={busy} onClose={() => setConfirm(false)}>
       <p>¿Anular este evento?</p>
-      <button disabled={busy} onClick={() => setConfirm(false)}>Cancelar</button>
-      <button disabled={disabled || busy} onClick={async () => { if (busy) return; setBusy(true); setError(''); try { await onVoid(); setConfirm(false) } catch { setError('No se pudo confirmar la anulación. Reintenta.') } finally { setBusy(false) } }}>Anular</button>
+      <button disabled={disabled || busy} onClick={async () => { if (busy) return; setBusy(true); setError(''); try { await onVoid(); setConfirm(false) } catch (err) { setError((err as Error).message || 'No se pudo confirmar la anulación. Reintenta.') } finally { setBusy(false) } }}>Anular</button>
       {error && <p role="alert">{error}</p>}
-    </div>}
+    </EventDialog>}
   </div>
 }

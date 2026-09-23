@@ -23,6 +23,9 @@ try {
     let beforeCards
     let beforeManagement
     let beforeReversal
+    let beforeWalkover
+    let beforeShootouts
+    let beforeAutomatic
     let beforeInitial
     const timeoutSnapshot = async () => (await db.query(`select jsonb_build_object(
       'matches',(select jsonb_agg(to_jsonb(m)-array['timeout_started_at','timeout_team_id'] order by id) from public.matches m),
@@ -121,7 +124,41 @@ try {
     }
     if (file.startsWith('018_')) beforeReversal = [await snapshot(), await timeoutSnapshot()]
     if (file.startsWith('019_')) beforeInitial = [await snapshot(), await timeoutSnapshot()]
+    const withoutWalkover = async () => {
+      const result = await snapshot()
+      for (const match of result.matches ?? []) {
+        delete match.walkover_loser_team_id; delete match.walkover_request_id; delete match.walkover_recorded_at
+      }
+      return result
+    }
+    if (file.startsWith('024_')) beforeWalkover = await withoutWalkover()
+    if (file.startsWith('025_')) beforeShootouts = [await snapshot(), await timeoutSnapshot()]
+    if (file.startsWith('026_')) {
+      await run('supabase/tests/026_legacy_fixture.sql')
+      beforeAutomatic = await db.query(`select m.id,to_jsonb(m) match,
+        (select jsonb_agg(to_jsonb(k) order by sequence) from public.penalty_shootout_attempts k where k.match_id=m.id) attempts
+        from public.matches m where m.category_id=(select id from public.categories where name='__026_legacy') order by m.id`)
+    }
     await run(`supabase/migrations/${file}`)
+    if (beforeShootouts) {
+      assert.deepEqual([await snapshot(), await timeoutSnapshot()], beforeShootouts, '025 conserva datos existentes')
+      console.log('OK 025: partidos, eventos, jugadores, convocatorias y clasificación anteriores intactos')
+    }
+    if (beforeAutomatic) {
+      const after = await db.query(`select m.id,to_jsonb(m) match,
+        (select jsonb_agg(to_jsonb(k) order by sequence) from public.penalty_shootout_attempts k where k.match_id=m.id) attempts
+        from public.matches m where m.id=any($1::uuid[]) order by m.id`, [beforeAutomatic.rows.map(m=>m.id)])
+      assert.deepEqual(after.rows,beforeAutomatic.rows,'026 conserva resultados y tiros históricos')
+      await db.exec(`do $$ begin
+        assert (select count(*) from public.matches where category_id=(select id from public.categories where name='__026_legacy') and stage in('FINAL','THIRD_PLACE'))=2;
+        assert exists(select 1 from public.penalty_shootouts where rule_set='LEGACY_ADMIN');
+      end $$;`)
+      console.log('OK 026: resultados históricos intactos y cruces pendientes reconciliados')
+    }
+    if (beforeWalkover) {
+      assert.deepEqual(await withoutWalkover(), beforeWalkover, '024 conserva datos existentes')
+      console.log('OK 024: partidos, eventos, equipos y categorías anteriores intactos')
+    }
     if (beforeInitial) {
       assert.deepEqual([await snapshot(), await timeoutSnapshot()], beforeInitial, '019 no modifica datos existentes')
       console.log('OK 019: datos existentes intactos')
@@ -202,10 +239,18 @@ try {
         '012_early_phase_finish.sql','013_players_and_match_events.sql']) await run(`supabase/tests/${testFile}`)
     }
     if (file.startsWith('014_')) await run('supabase/tests/014_match_lineups.sql')
-  }
+    if (file.startsWith('025_')) {
   await run('supabase/tests/017_prechecks_fouls_discipline.sql')
   await run('supabase/tests/018_event_reversal.sql')
   await run('supabase/tests/019_initial_players_and_scorers.sql')
+  await run('supabase/tests/022_record_own_goal.sql')
+  await run('supabase/tests/023_edit_event_player.sql')
+  await run('supabase/tests/024_walkover_and_event_corrections.sql')
+  await run('supabase/tests/025_penalty_shootouts.sql')
+    }
+  }
+  await run('supabase/tests/026_automatic_playoffs.sql')
+  await run('supabase/tests/027_first_penalty.sql')
 } catch (error) {
   console.error(error.message, error.detail ?? '', error.where ?? '', 'position:', error.position ?? '')
   process.exitCode = 1

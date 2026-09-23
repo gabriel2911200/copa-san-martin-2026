@@ -116,7 +116,7 @@ test('gol y amarilla seleccionan jugador del equipo; faltas y tiempos muertos se
   }
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('button', { name: 'GOL San Martín' }).click()
-  const selector = page.getByRole('region', { name: 'Seleccionar jugador' })
+  const selector = page.getByRole('dialog', { name: 'Seleccionar jugador' })
   await expect(selector.getByText('#5 Carlos López')).toBeVisible()
   await expect(selector.getByText('#10 Pedro Gómez')).toHaveCount(0)
   await selector.getByRole('button', { name: '#5 Carlos López' }).click()
@@ -253,7 +253,7 @@ test('convocatoria habilita eventos y permite distinto dorsal al mismo jugador e
     await away.getByRole('button', { name: 'Guardar convocatoria' }).click()
     await expect(page.getByRole('button', { name: 'GOL San Martín' })).toBeEnabled()
     await page.getByRole('button', { name: 'GOL San Martín' }).click()
-    const selector = page.getByRole('region', { name: 'Seleccionar jugador', exact: true })
+    const selector = page.getByRole('dialog', { name: 'Seleccionar jugador', exact: true })
     await expect(selector.getByText('No convocado')).toHaveCount(0)
     await selector.getByRole('button', { name: `#${number} Carlos López` }).click()
     await expect(home.getByText('Dorsal fijado por eventos del partido.')).toBeVisible()

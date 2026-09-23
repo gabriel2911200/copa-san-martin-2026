@@ -151,7 +151,7 @@ test('control previo persistido, cobros por periodo, roja sin pausa y doble amar
   await expect(page.getByRole('button',{name:'Terminar primer tiempo',exact:true})).toBeEnabled()
   async function card(action:string,team:string,player:string) {
     await page.getByRole('button',{name:`${action} ${team}`,exact:true}).click()
-    await page.getByRole('region',{name:'Seleccionar jugador'}).getByRole('button',{name:player,exact:true}).click()
+    await page.getByRole('dialog', { name: 'Seleccionar jugador'}).getByRole('button',{name:player,exact:true}).click()
   }
   await card('GOL','Santa Ana','#5 Juan Pérez')
   await card('AMARILLA','Santa Ana','#5 Juan Pérez')
@@ -168,8 +168,8 @@ test('control previo persistido, cobros por periodo, roja sin pausa y doble amar
   await page.getByText('JUGADORES',{exact:true}).click()
   await expect(page.getByRole('region',{name:'Convocatoria de Santa Ana',exact:true}).getByText('#5 Juan Pérez',{exact:true})).toHaveCount(0)
   await page.getByRole('button',{name:'GOL Santa Ana',exact:true}).click()
-  await expect(page.getByRole('region',{name:'Seleccionar jugador'}).getByRole('button',{name:'#5 Juan Pérez',exact:true})).toHaveCount(0)
-  await page.getByRole('button',{name:'Cancelar selección'}).click()
+  await expect(page.getByRole('dialog', { name: 'Seleccionar jugador'}).getByRole('button',{name:'#5 Juan Pérez',exact:true})).toHaveCount(0)
+  await page.getByRole('button',{name:'Cancelar'}).click()
   const started=data.match.phase_started_at
   await card('ROJA','Santa Lucía','#10 Pedro Gómez')
   expect(data.match.phase_started_at).toBe(started)

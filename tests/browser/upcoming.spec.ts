@@ -39,7 +39,8 @@ test('Inicio muestra todos los programados ordenados y actualiza la lista por Re
   await page.goto('/')
   const upcoming=page.getByRole('region',{name:'Próximos partidos'})
   await expect(upcoming.locator('.score-line p:first-child')).toHaveText(['Local first','Local second','Local late','Local unknown'])
-  await expect(upcoming.locator('.match-meta')).toContainText(['Mujeres · Fecha 2','Mujeres · Fecha 2','Mujeres · Fecha 2','Mujeres · Fecha 2'])
+  await expect(upcoming.locator('.match-meta')).toContainText(Array(4).fill('FASE REGULAR · MUJERES'))
+  await expect(upcoming.locator('.match-meta')).toContainText(Array(4).fill('Fecha 2'))
   await expect(upcoming.locator('.schedule-line').first()).toContainText('10/09/2026 · 15:00')
   await expect(page.locator('.featured-match')).toContainText('Local live')
   data.matches[3].match.status='FINALIZADO'

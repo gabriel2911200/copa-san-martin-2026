@@ -3,7 +3,7 @@ import { useTournament } from './lib/useTournament'
 import { useState } from 'react'
 import ScheduleEditor from './ScheduleEditor'
 import DeleteMatchButton from './DeleteMatchButton'
-import { isActive } from './lib/tournament'
+import { isActive, matchStageLabel } from './lib/tournament'
 import PlayoffsAdmin from './PlayoffsAdmin'
 export default function ControlHub(){
   const {data,error,loading,refresh}=useTournament()
@@ -12,16 +12,17 @@ export default function ControlHub(){
   return <div className="space-y-5"><p className="eyebrow">CENTRO DE JUEGO</p><h1>Controlar</h1>
     {loading&&<p role="status">Cargando partido…</p>}{error&&<p role="alert">{error}</p>}
     {matches.map(item=><section key={item.match.id} className="surface">
+      <p className="eyebrow">{matchStageLabel(item)} · {item.category.toUpperCase()}</p>
       <h2>{item.home} vs {item.away}</h2>
       <p>{isActive(item)?'En vivo':'Programado'} · {item.category}</p>
       <p>{item.match.scheduled_date?.split('-').reverse().join('/') ?? 'Fecha por confirmar'} · {item.match.scheduled_time?.slice(0,5) ?? 'Hora por confirmar'}</p>
       <Link className="primary-link" to={`/admin/partidos/${item.match.id}`}>CONTROLAR PARTIDO</Link>
+      <ScheduleEditor key={item.match.updated_at} item={item} refresh={refresh} label="PROGRAMAR"/>
       <details><summary>Opciones del partido</summary>
-        <ScheduleEditor key={item.match.updated_at} item={item} refresh={refresh}/>
         <DeleteMatchButton item={item} onDeleted={id=>{setDeleted(current=>[...current,id]);void refresh()}}/>
       </details>
     </section>)}
     {!loading&&!matches.length&&<p>No hay partidos programados ni en vivo.</p>}
-    <PlayoffsAdmin/>
+    <PlayoffsAdmin data={data} refresh={refresh}/>
   </div>
 }

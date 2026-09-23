@@ -1,3 +1,7 @@
+import PlayerEventDialog from './PlayerEventDialog'
+import PenaltyShootout from './PenaltyShootout'
+import type { Shootout } from './lib/penalties'
+import TeamResultDialog from './TeamResultDialog'
 import EditEventPlayer from './EditEventPlayer'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -15,7 +19,8 @@ import { currentPeriod, playerUnavailable, eventLabels, lineupReady, teamPeriodS
 import type { EventType, MatchEvent, MatchPlayer, Player, Precheck, FoulCount } from './lib/matchEvents'
 
 type Snapshot = {
-  match: ClockState & { id: string; stage: string; updated_at: string; home_team_id: string; away_team_id: string; tiebreak_winner_team_id: string | null }
+  shootout?: Shootout | null
+  match: ClockState & { id: string; stage: string; updated_at: string; home_team_id: string; away_team_id: string; tiebreak_winner_team_id: string | null; walkover_loser_team_id?: string | null }
   server_now: string
   category: string
   matchday: number
@@ -61,6 +66,8 @@ function MatchController({ id }: { id: string }) {
     try { return loadGoalRequest(sessionStorage, id) } catch { return null }
   })
   const [ownGoalSelection, setOwnGoalSelection] = useState(false)
+  const [walkoverSelection, setWalkoverSelection] = useState(false)
+  const walkoverRequest = useRef<{teamId: string; requestId: string} | null>(null)
   const lastGoalPress = useRef({ teamId: '', time: -Infinity })
   const [selection, setSelection] = useState<{ teamId: string; type: 'GOAL' | 'YELLOW_CARD' | 'RED_CARD' } | null>(null)
 
@@ -186,8 +193,25 @@ function MatchController({ id }: { id: string }) {
         if (!(rpcError.code === 'P0001' || rpcError.code?.startsWith('23') || rpcError.code === '42501')) setSynced(false)
         setError(rpcError.code === 'P0001' ? rpcError.message ?? 'Operación rechazada.' : 'No se pudo confirmar la operación. Reintenta el evento pendiente o actualiza el partido si fue una anulación.')
       }
+      if (eventId) throw Error(rpcError.code === 'P0001' ? rpcError.message : 'No se pudo confirmar la anulación. Reintenta.')
     } finally { lock.current = false; if (mounted.current) setSaving(false) }
   }, [snapshot, synced, pendingGoal, id, accept])
+
+  const recordWalkover = async (teamId: string) => {
+    if (!snapshot || !supabase || lock.current || pendingGoal) return
+    if (!walkoverRequest.current || walkoverRequest.current.teamId !== teamId) walkoverRequest.current = {teamId, requestId: crypto.randomUUID()}
+    lock.current = true; request.current++; setSaving(true); setError('')
+    const start = performance.now()
+    try {
+      const result = await supabase.rpc('record_walkover', {p_match_id: id, p_loser_team_id: teamId,
+        p_request_id: walkoverRequest.current.requestId, p_expected_updated_at: snapshot.match.updated_at})
+      if (result.error) throw result.error
+      if (!result.data) throw Error('Respuesta incompleta')
+      if (mounted.current) { accept(result.data as Snapshot, start); setWalkoverSelection(false); setSuccess('Resultado por Walkover (W.O.) guardado.') }
+    } catch (err) {
+      if (mounted.current) setError((err as {code?: string}).code === 'P0001' ? (err as {message: string}).message : 'No se pudo confirmar el W.O. Puedes reintentar la misma operación.')
+    } finally { lock.current = false; if (mounted.current) setSaving(false) }
+  }
 
   const editEventPlayer = async (playerId: string) => {
     if (!editingEvent || !supabase || lock.current || !synced || pendingGoal) throw Error('Actualiza el partido antes de editar.')
@@ -200,20 +224,6 @@ function MatchController({ id }: { id: string }) {
       if(mounted.current) {accept(result.data.control as Snapshot,start);setEditingEvent(null);setSuccess('Jugador del evento corregido.')}
     } finally {lock.current=false;if(mounted.current)setSaving(false)}
   }
-
-  const choosePenalty = useCallback(async (teamId: string) => {
-    if(lock.current || !synced || pendingGoal) return
-    lock.current=true; request.current++; setSaving(true); setError(''); setSuccess('')
-    const start=performance.now()
-    try {
-      if(!supabase) throw Error('Sin conexión')
-      const result=await supabase.rpc('set_penalty_winner',{p_match_id:id,p_team_id:teamId})
-      if(result.error) throw result.error
-      if(mounted.current) { accept(result.data as Snapshot,start); setSuccess('Ganador por penales guardado. Ya puedes finalizar.') }
-    } catch(err) {
-      if(mounted.current) { setSynced(false); setError((err as {code?:string}).code==='P0001'?(err as {message:string}).message:'No se pudo confirmar el ganador. Actualiza el partido.') }
-    } finally {lock.current=false; if(mounted.current) setSaving(false)}
-  },[synced,pendingGoal,id,accept])
 
   const saveLineup = useCallback(async (playerId: string, number: number, active: boolean) => {
     if (!snapshot || lock.current || !synced || pendingGoal) return false
@@ -317,7 +327,7 @@ function MatchController({ id }: { id: string }) {
     <Link to="/admin/controlar" className="inline-block py-3 text-blue-700 underline">Volver a Controlar</Link>
     <h1>Control del partido</h1>
     {loading && <p role="status">Cargando partido…</p>}
-    {error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-red-800">{error}</p>}
+    {error && !selection && !ownGoalSelection && !walkoverSelection && <p role="alert" className="rounded-lg bg-red-50 p-4 text-red-800">{error}</p>}
     {!synced && !loading && !startRequested && <button className="min-h-12 rounded-lg border p-3" disabled={saving} onClick={() => void refresh()}>Actualizar partido</button>}
     {snapshot && match && <>
       {match.status === 'PROGRAMADO' && startRequested && <PreMatchCheck initial={snapshot.precheck} onDismiss={() => setStartRequested(false)} key={`${match.home_team_id}:${match.away_team_id}`} home={snapshot.home} away={snapshot.away} busy={saving} error={precheckError} onSave={values => void savePrecheck(values)}/>}
@@ -330,8 +340,9 @@ function MatchController({ id }: { id: string }) {
         <p className="score-result font-bold tabular-nums" aria-label="Marcador">{snapshot.score.home} - {snapshot.score.away}</p>
         <p className="break-words font-semibold">{snapshot.away}</p>
         </div>
-        {match.tiebreak_winner_team_id && <p className="font-semibold text-blue-800">{match.tiebreak_winner_team_id===match.home_team_id?snapshot.home:snapshot.away} gana por penales</p>}
-        <p className="font-semibold">{match.status === 'TIEMPO_MUERTO' ? '⏸️ MINUTO' : match.status.replaceAll('_', ' ')}</p>
+        {match.walkover_loser_team_id && <p>Resultado oficial · Walkover (W.O.)</p>}
+        {match.tiebreak_winner_team_id && !snapshot.shootout && <p className="font-semibold text-blue-800">{match.tiebreak_winner_team_id===match.home_team_id?snapshot.home:snapshot.away} gana por penales</p>}
+        <p className="font-semibold">{snapshot.shootout && !snapshot.shootout.completed_at ? 'PENALES' : match.status === 'TIEMPO_MUERTO' ? '⏸️ MINUTO' : match.status.replaceAll('_', ' ')}</p>
         {match.status === 'PAUSADO' && <p>{match.paused_from_status?.replaceAll('_', ' ')} · Reloj detenido</p>}
         <p role="timer" aria-label="Tiempo de la fase" className="text-6xl font-bold tabular-nums">{formatClock(elapsed)}</p>
         {match.status === 'TIEMPO_MUERTO' && <div className="public-timeout">
@@ -343,10 +354,10 @@ function MatchController({ id }: { id: string }) {
         {ending && <p role="alert" className="rounded-lg bg-amber-100 p-4 font-semibold text-amber-900">Quedan 30 segundos o menos para {phase === 'DESCANSO' ? 'finalizar el descanso' : 'terminar el tiempo'}.</p>}
         {fulfilled && <p role="status" className="font-semibold text-blue-800">{phase === 'DESCANSO' ? 'Descanso cumplido' : 'Tiempo cumplido'}</p>}
       </section>
-      {editingEvent && <EditEventPlayer event={editingEvent} busy={saving} onSave={editEventPlayer} onClose={()=>setEditingEvent(null)} players={(snapshot.lineup ?? []).filter(p=>p.active && p.team_id===editingEvent.team_id && !playerUnavailable((snapshot.events ?? []).filter(e=>e.id!==editingEvent.id),p.id))}/>}
-      <MatchLineup homeId={match.home_team_id} awayId={match.away_team_id} home={snapshot.home} away={snapshot.away} players={(snapshot.players ?? []).filter(p => !playerUnavailable(snapshot.events ?? [], p.id))} lineup={(snapshot.lineup ?? []).filter(p => !playerUnavailable(snapshot.events ?? [], p.id))} disabled={saving || !synced || !!pendingGoal || match.status === 'FINALIZADO'} onSave={saveLineup} onOwnGoal={() => { setSelection(null); setOwnGoalSelection(value => !value) }} ownGoalDisabled={saving || !synced || !!pendingGoal || !rosterReady || !['PRIMER_TIEMPO','SEGUNDO_TIEMPO'].includes(match.status)}/>
+      {editingEvent && <EditEventPlayer event={editingEvent} team={editingEvent.team_id === match.home_team_id ? snapshot.home : snapshot.away} busy={saving} onSave={editEventPlayer} onClose={()=>setEditingEvent(null)} players={(snapshot.lineup ?? []).filter(p=>p.active && p.team_id===editingEvent.team_id && !playerUnavailable((snapshot.events ?? []).filter(e=>e.id!==editingEvent.id),p.id))}/>}
+      <MatchLineup onWalkover={() => { setError(''); setWalkoverSelection(true) }} walkoverDisabled={!!snapshot.shootout || saving || !synced || !!pendingGoal || !!match.walkover_loser_team_id} homeId={match.home_team_id} awayId={match.away_team_id} home={snapshot.home} away={snapshot.away} players={(snapshot.players ?? []).filter(p => !playerUnavailable(snapshot.events ?? [], p.id))} lineup={(snapshot.lineup ?? []).filter(p => !playerUnavailable(snapshot.events ?? [], p.id))} disabled={saving || !synced || !!pendingGoal || match.status === 'FINALIZADO'} onSave={saveLineup} onOwnGoal={() => { setError(''); setSelection(null); setOwnGoalSelection(true) }} ownGoalDisabled={saving || !synced || !!pendingGoal || !rosterReady || !['PRIMER_TIEMPO','SEGUNDO_TIEMPO'].includes(match.status)}/>
       {!rosterReady && match.status !== 'FINALIZADO' && <p>Completa la convocatoria de ambos equipos para habilitar goles, tarjetas y eventos.</p>}
-      {pendingGoal && <div className="space-y-3 rounded-lg bg-amber-50 p-4">
+      {pendingGoal && !selection && !ownGoalSelection && <div className="space-y-3 rounded-lg bg-amber-50 p-4">
         <p>Hay un evento pendiente de confirmar. Reintentar no lo registrará dos veces.</p>
         <button className="min-h-12 rounded-lg border px-4 disabled:opacity-50" disabled={saving} onClick={() => void goalOperation()}>Reintentar evento pendiente</button>
       </div>}
@@ -359,37 +370,26 @@ function MatchController({ id }: { id: string }) {
           {(['GOAL', 'FOUL', 'YELLOW_CARD', 'RED_CARD'] as const).map(type => <button key={type}
             className={'team-event-action event-' + type} disabled={disabled}
             aria-label={{ GOAL: 'GOL', FOUL: 'FALTA', YELLOW_CARD: 'AMARILLA', RED_CARD: 'ROJA' }[type] + ' ' + snapshot[side]}
-            onClick={() => type === 'FOUL' ? void goalOperation(teamId, undefined, undefined, type) : (setOwnGoalSelection(false), setSelection({ teamId, type }))}>
+            onClick={() => type === 'FOUL' ? void goalOperation(teamId, undefined, undefined, type) : (setError(''), setOwnGoalSelection(false), setSelection({ teamId, type }))}>
             {{ GOAL: '⚽ GOL', FOUL: 'FALTA', YELLOW_CARD: '🟨 AMARILLA', RED_CARD: '🟥 ROJA' }[type]}
           </button>)}
           <button className="min-h-12 w-full rounded-lg border p-3 disabled:opacity-50" disabled={disabled || stats.timeoutUsed} onClick={() => void goalOperation(teamId, undefined, undefined, 'TIMEOUT')}>MINUTO {side === 'home' ? 'LOCAL' : 'VISITANTE'}</button>
         </section>
       })}</div>
-      {ownGoalSelection && <section className="space-y-3 rounded-xl border-2 border-blue-700 bg-white p-4" aria-label="Seleccionar equipo para autogol">
-        <h2>¿Quién recibió el autogol?</h2>
-        <p>El gol contará para el equipo seleccionado.</p>
-        {[[match.home_team_id, snapshot.home], [match.away_team_id, snapshot.away]].map(([teamId, name]) => <button key={teamId} className="min-h-12 w-full rounded-lg border p-3 disabled:opacity-50"
-          disabled={saving || !synced || !!pendingGoal || !rosterReady || !['PRIMER_TIEMPO','SEGUNDO_TIEMPO'].includes(match.status)}
-          onClick={() => void goalOperation(teamId, undefined, undefined, 'GOAL', true)}>{name}</button>)}
-        <button className="min-h-12 rounded-lg border p-3" disabled={saving} onClick={() => setOwnGoalSelection(false)}>Cancelar selección</button>
-      </section>}
-      {selection && <section className="space-y-3 rounded-xl border-2 border-blue-700 bg-white p-4" aria-label="Seleccionar jugador">
-        <h2>{eventLabels[selection.type]} · {selection.teamId === match.home_team_id ? snapshot.home : snapshot.away}</h2>
-        <p>Seleccionar jugador</p>
-        {(snapshot.lineup ?? []).filter(p => p.active && p.team_id === selection.teamId && !playerUnavailable(snapshot.events ?? [], p.id)).map(player => <button key={player.id}
-          className="min-h-12 w-full rounded-lg border p-3 disabled:opacity-50"
-          disabled={saving || !synced || !!pendingGoal || !rosterReady || !['PRIMER_TIEMPO','SEGUNDO_TIEMPO'].includes(match.status)}
-          onClick={() => void goalOperation(selection.teamId, undefined, player.id, selection.type)}>#{player.shirt_number} {player.full_name}</button>)}
-        {!(snapshot.lineup ?? []).some(p => p.active && p.team_id === selection.teamId && !playerUnavailable(snapshot.events ?? [], p.id)) && <p>No hay jugadores disponibles para esta acción. Revisa la convocatoria y las tarjetas del partido.</p>}
-        <button className="min-h-12 rounded-lg border p-3" disabled={saving} onClick={() => setSelection(null)}>Cancelar selección</button>
-      </section>}
-      {match.stage!=='REGULAR' && match.status==='SEGUNDO_TIEMPO' && snapshot.score.home===snapshot.score.away && <section className="space-y-3 rounded-xl bg-amber-50 p-4">
-        <h2 className="text-xl font-semibold">Ganador por penales</h2>
-        <p>El marcador reglamentario permanece empatado. Selecciona quién ganó la tanda.</p>
-        {[['home',match.home_team_id],['away',match.away_team_id]].map(([side,teamId])=><button key={teamId} disabled={saving||!synced||!!pendingGoal} className="min-h-12 w-full rounded-lg border bg-white p-3 disabled:opacity-50" onClick={()=>void choosePenalty(teamId)}>{side==='home'?snapshot.home:snapshot.away}</button>)}
-      </section>}
+      {ownGoalSelection && <TeamResultDialog mode="own-goal" homeId={match.home_team_id} awayId={match.away_team_id} home={snapshot.home} away={snapshot.away}
+        busy={saving} error={error} disabled={(!synced && !pendingGoal) || !rosterReady || !['PRIMER_TIEMPO','SEGUNDO_TIEMPO'].includes(match.status)}
+        onRetry={pendingGoal ? () => void goalOperation() : undefined} onClose={() => setOwnGoalSelection(false)} onConfirm={loserId => void goalOperation(loserId === match.home_team_id ? match.away_team_id : match.home_team_id, undefined, undefined, 'GOAL', true)}/>}
+      {walkoverSelection && <TeamResultDialog mode="walkover" homeId={match.home_team_id} awayId={match.away_team_id} home={snapshot.home} away={snapshot.away}
+        busy={saving} error={error} disabled={!!pendingGoal} onClose={() => setWalkoverSelection(false)} onConfirm={teamId => void recordWalkover(teamId)}/>}
+      {selection && <PlayerEventDialog title="Seleccionar jugador" team={eventLabels[selection.type] + ' · ' + (selection.teamId === match.home_team_id ? snapshot.home : snapshot.away)}
+        players={(snapshot.lineup ?? []).filter(p => p.active && p.team_id === selection.teamId && !playerUnavailable(snapshot.events ?? [], p.id))}
+        busy={saving} error={error} disabled={(!synced && !pendingGoal) || !rosterReady || !['PRIMER_TIEMPO','SEGUNDO_TIEMPO'].includes(match.status)}
+        onRetry={pendingGoal ? () => void goalOperation() : undefined} onClose={() => setSelection(null)} onSelect={playerId => void goalOperation(selection.teamId, undefined, playerId, selection.type)}/>}
+      <PenaltyShootout key={id} item={snapshot} editable disabled={saving || !synced || !!pendingGoal}
+        canStart={!snapshot.shootout && match.stage !== 'REGULAR' && phase === 'SEGUNDO_TIEMPO' && ['SEGUNDO_TIEMPO','PAUSADO'].includes(match.status) && elapsed >= 900 && snapshot.score.home === snapshot.score.away && !match.tiebreak_winner_team_id && !match.walkover_loser_team_id}
+        onChange={data => { request.current++; accept(data as Snapshot, performance.now()) }}/>
       <div className="space-y-3" aria-busy={saving}>
-        {availableActions(match).map(action => <button key={action} disabled={saving || !synced || !!pendingGoal || (action==='FINISH' && match.stage!=='REGULAR' && snapshot.score.home===snapshot.score.away && !match.tiebreak_winner_team_id)} onClick={() => void act(action)} className="min-h-14 w-full rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{actionLabels[action]}</button>)}
+        {(snapshot.shootout ? [] : availableActions(match)).map(action => <button key={action} disabled={saving || !synced || !!pendingGoal || (action==='FINISH' && match.stage!=='REGULAR' && snapshot.score.home===snapshot.score.away && !match.tiebreak_winner_team_id)} onClick={() => void act(action)} className="min-h-14 w-full rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{actionLabels[action]}</button>)}
       </div>
       <p role="status" className="text-green-800">{saving ? 'Guardando…' : success}</p>
       {match.status !== 'PROGRAMADO' && <section className="live-match-stats" aria-label="Estadísticas del partido en vivo">

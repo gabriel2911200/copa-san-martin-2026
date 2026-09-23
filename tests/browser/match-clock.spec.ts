@@ -50,7 +50,13 @@ for (const [phase, threshold] of [['PRIMER_TIEMPO', 870], ['DESCANSO', 270], ['S
       }, configurable: true })
     })
     await page.clock.install()
+    // Freeze before navigation: compilation/network time must not consume the
+    // one-second margin in this deterministic phase-boundary fixture.
+    await page.clock.pauseAt(new Date())
     await page.route('**/rest/v1/**', async route => {
+      // The isolated API has no Realtime connection: the 30 s fallback polls.
+      // Return a fresh server clock instead of resetting to the original fixture.
+      data.server_now = await page.evaluate(() => new Date().toISOString())
       if (route.request().url().endsWith('/control_match')) {
         const action = route.request().postDataJSON().p_action
         data.match.status = action === 'PAUSE' ? 'PAUSADO' : phase
@@ -61,6 +67,8 @@ for (const [phase, threshold] of [['PRIMER_TIEMPO', 870], ['DESCANSO', 270], ['S
       await route.fulfill({ json: data })
     })
     await page.goto('/admin/partidos/clock-test')
+    await expect(page.getByRole('heading', { name: 'Control del partido' })).toBeVisible()
+    await page.clock.runFor(50) // Run the initial refresh scheduled by the component.
     await expect(page.getByRole('timer')).toBeVisible()
     await expect(page.getByText(/Quedan 30 segundos/)).toHaveCount(0)
     await page.clock.runFor(1100)
@@ -71,7 +79,8 @@ for (const [phase, threshold] of [['PRIMER_TIEMPO', 870], ['DESCANSO', 270], ['S
     await expect(page.getByText(/Quedan 30 segundos/)).toHaveCount(0)
     await page.getByRole('button', { name: 'REANUDAR', exact: true }).click()
     await expect(page.getByText(/Quedan 30 segundos/)).toBeVisible()
-    await page.clock.runFor(31000)
+    // Leave room for the asynchronous fallback snapshot and its latency anchor.
+    await page.clock.runFor(35000)
     await expect(page.getByText(/Quedan 30 segundos/)).toHaveCount(0)
     expect(await vibrations()).toHaveLength(1)
   })
@@ -89,18 +98,16 @@ test('el aviso funciona sin API de vibración y no aparece en público', async (
   await expect(page.getByText(/Quedan 30 segundos/)).toHaveCount(0)
 })
 
-test('eliminatoria anticipada empatada exige penales', async ({ page }) => {
+test('eliminatoria empatada espera tiempo reglamentario antes de iniciar penales', async ({ page }) => {
   const data = fixture('SEGUNDO_TIEMPO', 120)
   data.match.stage = 'SEMIFINAL'
   data.score.away = 1
   await page.route('**/rest/v1/**', async route => {
-    if (route.request().url().endsWith('/set_penalty_winner')) data.match.tiebreak_winner_team_id = 'b'
-    else expect(route.request().url()).toContain('/get_match_control')
+    expect(route.request().url()).toContain('/get_match_control')
     await route.fulfill({ json: data })
   })
   await page.goto('/admin/partidos/clock-test')
   await expect(page.getByRole('button', { name: 'FINALIZAR PARTIDO' })).toBeDisabled()
-  await page.getByRole('button', { name: 'Equipo B', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'FINALIZAR PARTIDO' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'INICIAR PENALES' })).toHaveCount(0)
   await expect(page.getByLabel('Marcador')).toHaveText('1 - 1')
 })

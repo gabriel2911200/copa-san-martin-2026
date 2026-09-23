@@ -469,3 +469,60 @@ Se asociaron únicamente los cinco eventos de gol existentes del partido `bd6cf1
 Aplicada la migración 020 para permitir un GOAL atribuido sin dorsal conocido. Es compatible desde 014 y se aplicó sin aplicar las pendientes 018/019. No se cargaron saldos iniciales: Goleadores calcula estos cinco goles directamente desde match_events. No volver a sumarlos con la carga de saldos de 019.
 
 Carga exacta y verificaciones transaccionales: `supabase/imports/san-martin-san-judas-2026-09-06.sql`. Requiere privilegios de propietario y 020; conserva las protecciones de eventos después de la transacción. Prueba local: `node tests/historical-attribution.mjs` (usa PGlite en .tmp-sql-check). Verifica marcador 4–1, idempotencia, cuatro jugadores sin dorsal y restauración del trigger. Verificación posterior en Supabase y navegador contra datos reales: las estadísticas muestran los cinco goleadores y Goleadores muestra acumulados 2/1/1/1. Sin crear partidos o goles nuevos, sin cargar otros encuentros, sin commit, push ni deploy.
+
+
+## Modales, autogol, W.O. y correcciones históricas — implementación local 024
+
+El control selecciona jugadores en un diálogo con lista desplazable, error interno,
+cancelación y devolución del foco. Calendario administrativo reutiliza ese selector
+para corregir el jugador de un gol, amarilla o roja finalizados. La corrección conserva
+ID, equipo, tipo, periodo y tiempo; solo cambia jugador y snapshot de nombre/dorsal.
+En partidos finalizados admite jugadores actualmente inactivos que conservan su
+convocatoria. Se mantienen restricciones de equipo y disciplina. Autogoles y minutos
+se anulan con confirmación; no tienen autor editable. El público sigue sin controles.
+
+AUTOGOL pregunta qué equipo lo cometió y confirma el gol para su rival. Conserva
+record_own_goal, sin jugador, y el UUID persistido para reintentos.
+
+Walkover (W.O.) pregunta qué equipo pierde y confirma 0–3 / 3–0. La migración
+supabase/migrations/024_walkover_and_event_corrections.sql agrega a matches:
+walkover_loser_team_id, walkover_request_id y walkover_recorded_at. La RPC record_walkover
+valida versión, bloquea el partido, guarda resultado final y detiene el reloj. Reintentar
+el mismo UUID/equipo devuelve el resultado existente. No crea GOAL ni jugadores.
+get_match_control y get_standings calculan el resultado administrativo; match_outcome y
+get_tournament lo reciben mediante el snapshot. get_top_scorers no cambia: W.O. no aporta
+goles individuales y no altera los goles de otros partidos.
+
+Protecciones conservadas:
+
+- W.O. rechaza cualquier evento válido o contador de faltas. Los eventos pueden anularse
+  por el mecanismo existente; los contadores requieren revisión especial. No se borra
+  nada automáticamente y los eventos anulados se conservan.
+- No se cambia un W.O. ya confirmado desde esta interfaz.
+- No se altera el marcador regular después del cierre de fase, ni se permiten correcciones
+  que dejen penales pendientes o cambien un ganador con cruces dependientes.
+- Cambiar únicamente el autor sí está permitido con clasificación cerrada.
+- No se aplica W.O. a semifinales con final/tercer puesto ya generados.
+- Se conservan reloj 15–5–15, faltas, minutos, convocatorias y desempates normales.
+
+Funciones reemplazadas en 024: guard_tournament_match, get_match_control, get_standings,
+guard_tournament_event, edit_match_event_player y void_match_event. RPC nueva:
+record_walkover. Se consolidan las protecciones de 018, autogoles de 022 y correcciones de
+023 sin editar migraciones anteriores. Se mantienen permisos, RLS y Realtime; no se añade login.
+
+Pruebas locales: npm test, npm run lint, npm run build, Playwright de eventos/reloj/cronología
+y tests/browser/result-dialogs.spec.ts. Este último verifica 320/390/768/1280 px, listas largas,
+foco, scroll, errores, W.O., edición finalizada y notificaciones Realtime simuladas entre páginas.
+El ejecutor tests/run-sql.mjs usa PGlite efímero, incluye 022–024 y comprueba conservación de datos.
+
+Pendiente para el propietario (no ejecutado): revisar historial y definiciones reales de Supabase
+antes de aplicar 024. La reconstrucción local usa 001–023 en orden; las notas anteriores no
+certifican el estado remoto actual. No ejecutar db push general ni reaplicar archivos a ciegas:
+018 puede reemplazar ampliaciones de 022/023. Tras reconciliar dependencias, revisar/aplicar 024,
+comprobar resultados y publicar el frontend por separado. W.O. y edición finalizada requieren
+esa migración. No se necesitan nuevas variables ni dependencias. Sin migración remota ni deploy.
+
+Resultado de esta revisión: build y lint aprobados, 17 pruebas unitarias aprobadas,
+44 escenarios Playwright aprobados y suite SQL local completa (incluida 024) aprobada.
+Se conserva el aviso de bundle JS mayor a 500 kB (aproximadamente 518 kB).
+Sin cambios en credenciales, dependencias o migraciones 001–023; sin deploy ni SQL remoto.

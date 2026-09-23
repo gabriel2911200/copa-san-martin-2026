@@ -153,3 +153,35 @@ body {min-height:100vh;background-attachment:fixed;}
 .public-timeout {margin:18px 0;text-align:center;font-size:13px;}
 .public-timeout .public-timeout-title {font-size:28px;font-weight:800;color:#ffe9d8;}
 .public-timeout [role=timer] {font-size:42px;font-weight:800;font-variant-numeric:tabular-nums;}
+
+/* Diálogos de eventos: lista interna, foco nativo y acciones accesibles. */
+.event-dialog[open] {display:flex;flex-direction:column;gap:12px;max-height:calc(100dvh - 24px);width:min(560px,calc(100% - 24px));padding:18px;overflow:hidden;}
+.event-dialog h2 {flex-shrink:0;overflow-wrap:anywhere;}
+.event-dialog-content {min-height:0;overflow-y:auto;overscroll-behavior:contain;}
+.event-dialog button {min-height:44px;white-space:normal;overflow-wrap:anywhere;}
+.event-dialog>button {flex-shrink:0;width:100%;}
+.event-player-list {display:grid;gap:8px;margin:12px 0;}
+.event-player-list button {width:100%;text-align:left;}
+.match-options {display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;}
+.match-options .match-lineup {flex:1 1 100%;order:2;}
+.match-options .match-lineup:not([open]) {flex:0 0 auto;order:0;}
+.match-options .own-goal-toggle {position:static;}
+.match-options .walkover-toggle {width:auto;min-width:130px;}
+/* Independent shootout score; symbols remain readable without color. */
+.penalty-shootout { min-width: 0; border: 1px solid #725161; border-radius: 12px; background: #251b25; color: #fff7f0; padding: 12px; margin-block: 12px; display: grid; gap: 12px; }
+.penalty-shootout h2 { font-weight: 800; text-align: center; }
+.penalty-score { text-align: center; font-size: 1.8rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.penalty-team h3 { overflow-wrap: anywhere; }
+.penalty-teams { display: grid; gap: 16px; min-width: 0; }
+.penalty-team { min-width: 0; }
+.penalty-attempts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin-top: 8px; }
+.penalty-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.penalty-attempts > * { display: inline-grid; place-items: center; min-width: 0; min-height: 40px; border-radius: 8px; font-weight: 800; }
+.penalty-shootout .penalty-attempts button { padding: 4px; min-width: 0; }
+.penalty-result { text-align: center; font-weight: 800; }
+@media(min-width: 600px) { .penalty-teams { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kick-scored { background: #dcfce7; color: #14532d; border: 1px solid #15803d; }
+.kick-missed { background: #fee2e2; color: #7f1d1d; border: 1px solid #b91c1c; }
+.kick-pending { background: #e2e8f0; color: #334155; }
+.penalty-shootout button { min-height: 44px; padding: 8px 12px; border: 1px solid #64748b; border-radius: 8px; overflow-wrap: anywhere; }
+.penalty-shootout button:disabled { opacity: .5; }

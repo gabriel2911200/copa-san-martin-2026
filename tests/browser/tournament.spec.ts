@@ -60,21 +60,17 @@ test('rutas reales cargan sin errores de JavaScript y sin escrituras', async ({ 
   expect(errors).toEqual([])
 })
 
-test('penales: exige ganador antes de finalizar y conserva el empate', async ({ page }) => {
-  const snapshot = { match: { id: 'm', category_id: 'c', home_team_id: 'a', away_team_id: 'b', stage: 'SEMIFINAL', status: 'SEGUNDO_TIEMPO', paused_from_status: null, phase_elapsed_seconds: 900, phase_started_at: new Date().toISOString(), updated_at: new Date().toISOString(), tiebreak_winner_team_id: null as string | null }, category: 'Varones', matchday: 5, home: 'Equipo A', away: 'Equipo B', server_now: new Date().toISOString(), score: { home: 1, away: 1 }, goals: [] }
-  await page.route('**/rest/v1/**', async route => {
-    if (route.request().url().endsWith('/set_penalty_winner')) {
-      expect(route.request().postDataJSON()).toEqual({ p_match_id: 'm', p_team_id: 'b' })
-      snapshot.match.tiebreak_winner_team_id = 'b'
-    } else if (!route.request().url().endsWith('/get_match_control')) throw Error('RPC inesperada')
-    await route.fulfill({ json: snapshot })
+test('penales históricos: conserva ganador manual y marcador reglamentario', async ({ page }) => {
+  const snapshot = { match: { id: 'm', category_id: 'c', home_team_id: 'a', away_team_id: 'b', stage: 'SEMIFINAL', status: 'SEGUNDO_TIEMPO', paused_from_status: null, phase_elapsed_seconds: 900, phase_started_at: new Date().toISOString(), updated_at: new Date().toISOString(), tiebreak_winner_team_id: 'b' }, category: 'Varones', matchday: 5, home: 'Equipo A', away: 'Equipo B', server_now: new Date().toISOString(), score: { home: 1, away: 1 }, goals: [] }
+  await page.route('**/rest/v1/**', route => {
+    expect(route.request().url()).toContain('/get_match_control')
+    return route.fulfill({ json: snapshot })
   })
   await page.goto('/admin/partidos/m')
   await expect(page.getByRole('timer')).toHaveText('15:00')
-  await expect(page.getByRole('button', { name: /finalizar/i })).toBeDisabled()
-  await page.getByRole('button', { name: 'Equipo B', exact: true }).click()
   await expect(page.getByText('Equipo B gana por penales')).toBeVisible()
-  await expect(page.getByRole('button', { name: /finalizar/i })).toBeEnabled()
+  await expect(page.getByRole('button', { name: /FINALIZAR PARTIDO/ })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'INICIAR PENALES' })).toHaveCount(0)
   await expect(page.getByLabel('Marcador')).toHaveText('1 - 1')
 })
 

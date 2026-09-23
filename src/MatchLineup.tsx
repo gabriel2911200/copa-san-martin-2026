@@ -34,14 +34,14 @@ function TeamLineup({ teamId, name, players, lineup, disabled, onSave }: {
   </section>
 }
 
-export default function MatchLineup({ homeId, awayId, home, away, players, lineup, disabled, onSave, onOwnGoal, ownGoalDisabled }: {
+export default function MatchLineup({ homeId, awayId, home, away, players, lineup, disabled, onSave, onOwnGoal, ownGoalDisabled, onWalkover, walkoverDisabled }: {
   homeId: string; awayId: string; home: string; away: string; players: Player[]; lineup: MatchPlayer[]; disabled: boolean; onSave: SaveLineup
-  onOwnGoal?: () => void; ownGoalDisabled?: boolean
+  onOwnGoal?: () => void; ownGoalDisabled?: boolean; onWalkover?: () => void; walkoverDisabled?: boolean
 }) {
-  return <div className="relative"><details className="match-lineup space-y-3">
+  return <div className="match-options"><details className="match-lineup space-y-3">
     <summary className="lineup-toggle">JUGADORES</summary>
     <p>Asigna jugadores y dorsales a ambos equipos antes de registrar eventos. El dorsal puede ser distinto en otro encuentro.</p>
     <TeamLineup teamId={homeId} name={home} players={players} lineup={lineup} disabled={disabled} onSave={onSave}/>
     <TeamLineup teamId={awayId} name={away} players={players} lineup={lineup} disabled={disabled} onSave={onSave}/>
-  </details>{onOwnGoal && <button type="button" className="lineup-toggle own-goal-toggle disabled:opacity-50" disabled={ownGoalDisabled} onClick={onOwnGoal}>AUTOGOL</button>}</div>
+  </details>{onOwnGoal && <button type="button" className="lineup-toggle own-goal-toggle disabled:opacity-50" disabled={ownGoalDisabled} onClick={onOwnGoal}>AUTOGOL</button>}{onWalkover && <button type="button" className="lineup-toggle walkover-toggle" disabled={walkoverDisabled} onClick={onWalkover}>Walkover (W.O.)</button>}</div>
 }

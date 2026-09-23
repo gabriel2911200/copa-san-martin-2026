@@ -5,9 +5,13 @@ import type { Tournament, TournamentCategory, PublicMatch } from './lib/tourname
 import { stageLabels } from './lib/tournament'
 
 export default function PlayoffsAdmin({data,refresh}:{data:Tournament|null;refresh:()=>Promise<void>}) {
+  const categories=data?.categories.filter(c=>!c.regular_closed_at || new Set(data.matches
+    .filter(m=>m.match.category_id===c.id && m.match.stage==='SEMIFINAL')
+    .map(m=>m.match.id)).size<2) ?? []
+  if(!categories.length) return null
   return <section id="eliminatorias" className="space-y-5 scroll-mt-4">
     <h2 className="text-2xl font-bold">Eliminatorias por categoría</h2>
-    {data?.categories.map(c=><CategoryPlayoffs key={c.id} category={c} matches={data.matches.filter(m=>m.match.category_id===c.id)} refresh={refresh}/>)}
+    {categories.map(c=><CategoryPlayoffs key={c.id} category={c} matches={data!.matches.filter(m=>m.match.category_id===c.id)} refresh={refresh}/>)}
   </section>
 }
 

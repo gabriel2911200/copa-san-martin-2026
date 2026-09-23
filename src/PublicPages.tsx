@@ -7,11 +7,11 @@ import DeleteMatchButton from './DeleteMatchButton'
 import { useTournament } from './lib/useTournament'
 import { clockAt, elapsedSeconds, formatClock, timeoutSeconds } from './lib/matchClock'
 import { currentPeriod } from './lib/matchEvents'
-import { isActive, podium, matchStageLabel, teamName } from './lib/tournament'
+import { isActive, podium, matchStageLabel, stageLabels, teamName } from './lib/tournament'
 import type { PublicMatch, Tournament } from './lib/tournament'
 import type { LiveChange } from './lib/useLiveRefresh'
 
-export function PublicMatchCard({ item, clock = false, statistics = false, refresh }: { item: PublicMatch; clock?: boolean; statistics?: boolean; refresh?: () => Promise<void> }) {
+export function PublicMatchCard({ item, clock = false, statistics = false, refresh, phaseLabel }: { item: PublicMatch; clock?: boolean; statistics?: boolean; refresh?: () => Promise<void>; phaseLabel?: string }) {
   const [now,setNow] = useState(() => Date.parse(item.server_now))
   useEffect(() => {
     if (!clock && !item.match.timeout_started_at) return
@@ -26,7 +26,7 @@ export function PublicMatchCard({ item, clock = false, statistics = false, refre
   const inTimeout = displayMatch.status === 'TIEMPO_MUERTO'
   const penalty = item.match.tiebreak_winner_team_id
   return <article className={`match-card ${clock?'featured-match':''}`}>
-    <div className="match-meta"><span>{matchStageLabel(item)} · {item.category.toUpperCase()}</span><span>Fecha {item.matchday}</span></div>
+    <div className="match-meta"><span>{phaseLabel ?? matchStageLabel(item)} · {item.category.toUpperCase()}</span><span>Fecha {item.matchday}</span></div>
     {isActive(item) && <MatchStats match={displayMatch} fouls={item.fouls} events={item.events} home={item.home} away={item.away}/>}
     <div className="score-line"><p>{item.home}</p><strong className={item.match.status==='PROGRAMADO'?'scheduled-score':''}>{item.match.status==='PROGRAMADO'?'Programado':`${item.score.home} - ${item.score.away}`}</strong><p>{item.away}</p></div>
     <div className="match-status"><span className={isActive(item)&&!inTimeout?'live-dot':''}>{item.shootout && !item.shootout.completed_at ? 'En vivo · PENALES' : inTimeout?`En vivo · ${currentPeriod(displayMatch)}T`:isActive(item)?`En vivo · ${displayMatch.status.replaceAll('_',' ')}`:item.match.status==='FINALIZADO'?'Resultado final':'Pendiente de inicio'}</span>
@@ -87,27 +87,29 @@ export function InicioPage() {
     const timer=setTimeout(()=>setCelebration(''),4000)
     return ()=>clearTimeout(timer)
   },[celebration])
-  const featured=data?.matches.find(isActive)
-  const upcoming=data?.matches.filter(m=>m.match.status==='PROGRAMADO').sort((a,b)=>(a.match.scheduled_date??'9999').localeCompare(b.match.scheduled_date??'9999')||(a.match.scheduled_time??'99').localeCompare(b.match.scheduled_time??'99')||a.match.id.localeCompare(b.match.id)) ?? []
-  const latest = data?.matches.filter(m=>m.match.status==='FINALIZADO').sort((a,b)=>b.match.updated_at.localeCompare(a.match.updated_at))[0]
-  return <div className="space-y-6">
+  const matches=[...new Map(data?.matches.map(item=>[item.match.id,item])).values()]
+  const live=matches.filter(isActive)
+  const upcoming=matches.filter(m=>m.match.status==='PROGRAMADO').sort((a,b)=>(a.match.scheduled_date??'9999').localeCompare(b.match.scheduled_date??'9999')||(a.match.scheduled_time??'99').localeCompare(b.match.scheduled_time??'99')||a.match.id.localeCompare(b.match.id))
+  const groups=new Map<string,{title:string;regular:boolean;items:PublicMatch[]}>()
+  for(const item of upcoming) {
+    const regular=item.match.stage==='REGULAR'
+    const key=`${item.match.category_id}:${regular?'regular':'playoffs'}`
+    if(!groups.has(key)) groups.set(key,{title:`${regular?'FASE REGULAR':'FASE ELIMINATORIA'} · ${item.category.toUpperCase()}`,regular,items:[]})
+    groups.get(key)!.items.push(item)
+  }
+  const phaseLabel=(item:PublicMatch)=>item.match.stage==='REGULAR'?'FASE REGULAR':(stageLabels[item.match.stage]??item.match.stage).toUpperCase()
+  return <div className="home-page space-y-6">
     <section className="hero"><div><p className="eyebrow">LA PASIÓN NOS UNE</p><h1>Copa Martín <span>2026</span></h1><p>El campeonato se vive aquí.</p></div><img src="/brand/copa.png" alt="Logo oficial Copa Martín"/></section>
     {celebration && <div role="status" className="rounded-xl bg-green-100 p-6 text-center text-2xl font-bold text-green-900">¡GOOOL!<br/>{celebration}</div>}
     {loading && <p role="status">Cargando campeonato…</p>}
     {error && <p role="alert">{error}</p>}
-    {featured && <><h2 className="text-xl font-bold">EN VIVO</h2><PublicMatchCard item={featured} clock /></>}
-    <section aria-label="Próximos partidos" className="space-y-4"><h2>PRÓXIMOS PARTIDOS</h2>
-      <div className="calendar-grid">{upcoming.map(item=><PublicMatchCard key={item.match.id} item={item}/>)}</div>
-      {!loading && !upcoming.length && <p>No hay partidos programados pendientes.</p>}
-    </section>
-    {!featured && latest && <><h2>Último resultado</h2><PublicMatchCard item={latest}/></>}
-    {data?.categories.map(c=><div key={c.id} className="space-y-4">
-      <Podium data={data} categoryId={c.id}/>
-      {c.regular_closed_at && <><h2 className="text-xl font-bold">Fase eliminatoria · {c.name}</h2>
-        {data.matches.filter(m=>m.match.category_id===c.id && m.match.stage!=='REGULAR' && m.match.status==='FINALIZADO' && (featured || m.match.id!==latest?.match.id)).map(m=><PublicMatchCard key={m.match.id} item={m}/>)}
-        {!data.matches.some(m=>m.match.category_id===c.id && m.match.stage!=='REGULAR') && <p>Clasificados definidos. Cruces pendientes.</p>}
-      </>}
-    </div>)}
+    {!!live.length && <section aria-label="Partidos en vivo" className="space-y-4"><h2>PARTIDO EN VIVO</h2>
+      {live.map(item=><PublicMatchCard key={item.match.id} item={item} clock phaseLabel={phaseLabel(item)}/>)}</section>}
+    {[...groups.entries()].sort(([,a],[,b])=>Number(b.regular)-Number(a.regular)||a.title.localeCompare(b.title)).map(([key,group])=>
+      <section key={key} aria-label={group.title} className="home-match-group space-y-4"><h2>{group.title}</h2>
+        <div className="calendar-grid">{group.items.map(item=><PublicMatchCard key={item.match.id} item={item} phaseLabel={phaseLabel(item)}/>)}</div>
+      </section>)}
+    {!loading && !error && !upcoming.length && !live.length && <p className="empty-state">No hay partidos en vivo ni programados pendientes. Consulta los resultados en Calendario.</p>}
   </div>
 }
 

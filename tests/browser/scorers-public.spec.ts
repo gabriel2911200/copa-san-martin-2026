@@ -35,7 +35,7 @@ for (const status of ['FINALIZADO', 'PRIMER_TIEMPO']) test(`estadísticas públi
     expect(route.request().url()).toContain('/get_tournament')
     return route.fulfill({ json: { categories: [], matchdays: [{ id: 'd', number: 1 }], matches: [match] } })
   })
-  for (const path of status === 'FINALIZADO' ? ['/', '/calendario'] : ['/']) {
+  for (const path of status === 'FINALIZADO' ? ['/calendario'] : ['/']) {
     await page.goto(path)
     if (status === 'FINALIZADO') await page.getByText('Estadísticas del partido', { exact: false }).click()
     const timeline = page.getByRole('list', { name: 'Cronología del partido' })

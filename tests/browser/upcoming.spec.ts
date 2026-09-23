@@ -37,7 +37,7 @@ test('Inicio muestra todos los programados ordenados y actualiza la lista por Re
   const data={categories:[],matchdays:[],matches:[match('late','2026-09-11','15:00'),match('unknown',null,null),match('second','2026-09-10','16:00'),match('first','2026-09-10','15:00'),match('live','2026-09-10','14:00','PRIMER_TIEMPO')]}
   await page.route('**/rest/v1/**',route=>{expect(route.request().url()).toContain('/get_tournament');return route.fulfill({json:data})})
   await page.goto('/')
-  const upcoming=page.getByRole('region',{name:'Próximos partidos'})
+  const upcoming=page.getByRole('region',{name:'FASE REGULAR · MUJERES'})
   await expect(upcoming.locator('.score-line p:first-child')).toHaveText(['Local first','Local second','Local late','Local unknown'])
   await expect(upcoming.locator('.match-meta')).toContainText(Array(4).fill('FASE REGULAR · MUJERES'))
   await expect(upcoming.locator('.match-meta')).toContainText(Array(4).fill('Fecha 2'))

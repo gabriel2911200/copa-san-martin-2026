@@ -68,6 +68,9 @@ body {min-height:100vh;background-attachment:fixed;}
 .category-tabs button[aria-pressed=true],button[aria-pressed=true] {background:#7b2342;color:#ffe2ca;box-shadow:inset 0 1px #bd7a8655;}
 .match-card {padding:14px 16px;background:linear-gradient(145deg,#30212b,#211820);border:1px solid #573646;border-radius:17px;box-shadow:0 7px 18px #08050830,inset 0 1px #97637d15;}
 .match-meta {display:flex;justify-content:space-between;gap:8px;color:#c49aad;font-size:10px;letter-spacing:.04em;}
+.home-page .match-meta {align-items:flex-start;flex-wrap:wrap;}
+.home-page .match-meta > span:first-child {font-size:12px;font-weight:700;line-height:1.5;padding:3px 0;}
+.home-match-group > h2 {font-size:clamp(16px,4.5vw,20px);line-height:1.4;overflow-wrap:anywhere;}
 .score-line {display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin:16px 0;}
 .score-line p {font-size:14px;font-weight:700;overflow-wrap:anywhere;}
 .score-line p:last-child {text-align:right;}

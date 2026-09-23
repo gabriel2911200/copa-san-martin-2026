@@ -83,7 +83,9 @@ for (const width of [320, 390, 768, 1280]) test(`tanda completa, corrección y c
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByLabel('Marcador', { exact: true })).toHaveText('1 - 1')
   expect(data.match.status).toBe('FINALIZADO')
-  for (const path of ['/', '/partidos', '/admin/calendario']) {
+  await page.goto('/')
+  await expect(page.locator('.match-card')).toHaveCount(0)
+  for (const path of ['/partidos', '/admin/calendario']) {
     await page.goto(path)
     await expect(page.getByLabel('Marcador de penales').first()).toHaveText('0 - 3')
     await expect(page.getByText('1 - 1', { exact: true }).first()).toBeVisible()
@@ -169,6 +171,8 @@ for (const width of [320,390,768,1280]) test(`tanda larga: tercera fila sin desb
   await expect(panel.getByLabel('Marcador de penales')).toHaveText('11 - 10')
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
   await page.goto('/')
+  await expect(page.getByLabel('Marcador de penales')).toHaveCount(0)
+  await page.goto('/calendario')
   await expect(page.getByLabel('Marcador de penales')).toHaveText('11 - 10')
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
   await expect(page.getByText(/muerte súbita/i)).toHaveCount(0)

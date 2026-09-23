@@ -38,7 +38,7 @@ test('cinco regulares y dos semifinales: Controlar, programación y únicas tarj
   await expect(card.getByText('27/09/2026 · 15:00')).toBeVisible()
   await page.goto('/')
   await expect(page.locator('.match-card')).toHaveCount(7)
-  await expect(page.getByText('SEMIFINAL 1 · MUJERES',{exact:true})).toHaveCount(1)
+  await expect(page.getByText('SEMIFINAL · MUJERES',{exact:true})).toHaveCount(2)
   await expect(page.getByText(/27\/09\/2026 · 15:00/)).toBeVisible()
   const second=data.matches.find(m=>m.match.id==='sf2')!
   second.match.scheduled_date='2026-09-27';second.match.scheduled_time='16:00'
@@ -51,7 +51,7 @@ test('cinco regulares y dos semifinales: Controlar, programación y únicas tarj
   })
   await expect(page.getByText(/27\/09\/2026 · 16:00/)).toBeVisible()
   await expect(page.locator('.match-card')).toHaveCount(7)
-  await expect(page.getByText('FASE REGULAR · VARONES',{exact:true})).toHaveCount(5)
+  await expect(page.locator('.match-meta').filter({hasText:'FASE REGULAR · VARONES'})).toHaveCount(5)
 })
 
 test('configurar cruces crea ambas semifinales sin usar Crear partido',async({page})=>{

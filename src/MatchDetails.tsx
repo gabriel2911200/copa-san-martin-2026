@@ -73,6 +73,7 @@ export default function MatchDetails({ item, refresh }: { item: PublicMatch; ref
     await refresh?.()
   }
   return <details className="match-details"><summary>Estadísticas del partido <span aria-hidden="true">↗</span></summary>
+    {refresh && <p className="p-3 text-sm">Abre el menú ⋮ de un evento para editar su jugador o anularlo. La anulación conserva el historial.</p>}
     {error && <p role="alert">{error}</p>}
     {editing && <EditEventPlayer key={editing.id} event={editing} team={editing.team_id === item.match.home_team_id ? item.home : item.away} players={players} busy={busy} onSave={save} onClose={() => setEditing(null)}/>}
     <MatchTimeline item={item} disabled={busy} onEdit={refresh ? event => void edit(event) : undefined} onRevert={refresh ? revert : undefined}/>

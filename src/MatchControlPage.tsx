@@ -354,7 +354,7 @@ function MatchController({ id }: { id: string }) {
         {ending && <p role="alert" className="rounded-lg bg-amber-100 p-4 font-semibold text-amber-900">Quedan 30 segundos o menos para {phase === 'DESCANSO' ? 'finalizar el descanso' : 'terminar el tiempo'}.</p>}
         {fulfilled && <p role="status" className="font-semibold text-blue-800">{phase === 'DESCANSO' ? 'Descanso cumplido' : 'Tiempo cumplido'}</p>}
       </section>
-      {editingEvent && <EditEventPlayer event={editingEvent} team={editingEvent.team_id === match.home_team_id ? snapshot.home : snapshot.away} busy={saving} onSave={editEventPlayer} onClose={()=>setEditingEvent(null)} players={(snapshot.lineup ?? []).filter(p=>p.active && p.team_id===editingEvent.team_id && !playerUnavailable((snapshot.events ?? []).filter(e=>e.id!==editingEvent.id),p.id))}/>}
+      {editingEvent && <EditEventPlayer event={editingEvent} team={editingEvent.team_id === match.home_team_id ? snapshot.home : snapshot.away} busy={saving} onSave={editEventPlayer} onClose={()=>setEditingEvent(null)} players={(snapshot.lineup ?? []).filter(p=>(match.status==='FINALIZADO' || p.active) && p.team_id===editingEvent.team_id && !playerUnavailable((snapshot.events ?? []).filter(e=>e.id!==editingEvent.id),p.id))}/>}
       <MatchLineup onWalkover={() => { setError(''); setWalkoverSelection(true) }} walkoverDisabled={!!snapshot.shootout || saving || !synced || !!pendingGoal || !!match.walkover_loser_team_id} homeId={match.home_team_id} awayId={match.away_team_id} home={snapshot.home} away={snapshot.away} players={(snapshot.players ?? []).filter(p => !playerUnavailable(snapshot.events ?? [], p.id))} lineup={(snapshot.lineup ?? []).filter(p => !playerUnavailable(snapshot.events ?? [], p.id))} disabled={saving || !synced || !!pendingGoal || match.status === 'FINALIZADO'} onSave={saveLineup} onOwnGoal={() => { setError(''); setSelection(null); setOwnGoalSelection(true) }} ownGoalDisabled={saving || !synced || !!pendingGoal || !rosterReady || !['PRIMER_TIEMPO','SEGUNDO_TIEMPO'].includes(match.status)}/>
       {!rosterReady && match.status !== 'FINALIZADO' && <p>Completa la convocatoria de ambos equipos para habilitar goles, tarjetas y eventos.</p>}
       {pendingGoal && !selection && !ownGoalSelection && <div className="space-y-3 rounded-lg bg-amber-50 p-4">
@@ -394,7 +394,7 @@ function MatchController({ id }: { id: string }) {
       <p role="status" className="text-green-800">{saving ? 'Guardando…' : success}</p>
       {match.status !== 'PROGRAMADO' && <section className="live-match-stats" aria-label="Estadísticas del partido en vivo">
         <h2>ESTADÍSTICAS EN VIVO</h2>
-        <MatchTimeline item={snapshot} onEdit={match.status !== 'FINALIZADO' ? setEditingEvent : undefined} disabled={saving || !synced || !!pendingGoal} onRevert={eventId => goalOperation(undefined, eventId)}/>
+        <MatchTimeline item={snapshot} onEdit={setEditingEvent} disabled={saving || !synced || !!pendingGoal} onRevert={eventId => goalOperation(undefined, eventId)}/>
       </section>}
     </>}
   </div>

@@ -1,6 +1,7 @@
 ﻿# Copa San Martín 2026
 
 React + Vite + TypeScript, Tailwind CSS y React Router. Diseño para celular.
+Implementación de duración 15/20, reinicio protegido y caché: [documentación y pasos de publicación de 028–029](docs/duration-reset-cache-028-029.md). Las notas históricas siguientes conservan su contexto original.
 Proyecto Supabase autorizado: `kxoihaxxxddykziabmoq` (copa san martin 2026).
 
 ## Desarrollo

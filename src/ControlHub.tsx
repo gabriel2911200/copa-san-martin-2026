@@ -5,6 +5,7 @@ import ScheduleEditor from './ScheduleEditor'
 import DeleteMatchButton from './DeleteMatchButton'
 import { isActive, matchStageLabel } from './lib/tournament'
 import PlayoffsAdmin from './PlayoffsAdmin'
+import ResetTournament from './ResetTournament'
 export default function ControlHub(){
   const {data,error,loading,refresh}=useTournament()
   const [deleted,setDeleted]=useState<string[]>([])
@@ -24,5 +25,6 @@ export default function ControlHub(){
     </section>)}
     {!loading&&!matches.length&&<p>No hay partidos programados ni en vivo.</p>}
     <PlayoffsAdmin data={data} refresh={refresh}/>
+    <ResetTournament onReset={() => { setDeleted([]); void refresh() }}/>
   </div>
 }

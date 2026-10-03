@@ -1,10 +1,28 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { availableActions, clockAt, elapsedSeconds, formatClock, isPhaseEnding, timeoutSeconds } from '../src/lib/matchClock.ts'
+import { availableActions, clockAt, elapsedSeconds, formatClock, isPhaseEnding, timeoutSeconds, remainingSeconds, periodSeconds } from '../src/lib/matchClock.ts'
 import type { ClockState } from '../src/lib/matchClock.ts'
 
 const start = Date.parse('2026-09-05T12:00:00Z')
 const running: ClockState = { status: 'PRIMER_TIEMPO', paused_from_status: null, phase_elapsed_seconds: 12, phase_started_at: new Date(start).toISOString() }
+
+test('15/20: cuenta atrás, descanso fijo, segundo tiempo y compatibilidad histórica', () => {
+  assert.equal(periodSeconds(running), 900)
+  for (const duration of [900,1200] as const) {
+    const match = {...running, period_duration_seconds: duration, phase_elapsed_seconds: 0}
+    for (const status of ['PROGRAMADO','PRIMER_TIEMPO','SEGUNDO_TIEMPO'] as const) {
+      assert.equal(formatClock(remainingSeconds({...match,status},start)), duration === 900 ? '15:00' : '20:00')
+    }
+    assert.equal(formatClock(remainingSeconds({...match,status:'DESCANSO'},start)), '05:00')
+    assert.equal(remainingSeconds(match,start+10000),duration-10)
+    assert.equal(remainingSeconds(match,start+9999999),0)
+    assert.equal(isPhaseEnding(match,duration-30),true)
+    const timeout: ClockState = {...match,status:'TIEMPO_MUERTO',paused_from_status:'SEGUNDO_TIEMPO',phase_elapsed_seconds:700,phase_started_at:null,timeout_started_at:new Date(start).toISOString()}
+    assert.equal(remainingSeconds(timeout,start+59000),duration-700)
+    assert.equal(remainingSeconds(timeout,start+61000),duration-701)
+  }
+  assert.equal(isPhaseEnding({...running,period_duration_seconds:1200},870),false)
+})
 
 test('reconstruye el reloj desde datos persistidos después de recarga', () => {
   const reloaded = JSON.parse(JSON.stringify(running))

@@ -8,7 +8,7 @@ test('público móvil: marcador, celebración, anulación y pausa por eventos si
   }
   await page.route('**/rest/v1/**', route => route.fulfill({ json: data }))
   await page.goto('/')
-  await expect(page.getByRole('timer')).toHaveText('02:00')
+  await expect(page.getByRole('timer')).toHaveText('13:00')
   await expect(page.getByText('0 - 0', { exact: true })).toBeVisible()
   await expect(page.getByText('¡GOOOL!')).toHaveCount(0)
   const emit = async (type: string, record: Record<string, unknown>) => {
@@ -33,7 +33,7 @@ test('público móvil: marcador, celebración, anulación y pausa por eventos si
   await emit('UPDATE', { id: 'g', voided_at: new Date().toISOString() })
   await expect(page.getByText('0 - 0', { exact: true })).toBeVisible()
   await page.reload()
-  await expect(page.getByRole('timer')).toHaveText('02:00')
+  await expect(page.getByRole('timer')).toHaveText('13:00')
   await expect(page.getByText('¡GOOOL!')).toHaveCount(0)
   await page.goto('/partidos')
   await expect(page.getByRole('heading', { name: /^Fecha \d/ })).toHaveCount(6)
@@ -67,7 +67,7 @@ test('penales históricos: conserva ganador manual y marcador reglamentario', as
     return route.fulfill({ json: snapshot })
   })
   await page.goto('/admin/partidos/m')
-  await expect(page.getByRole('timer')).toHaveText('15:00')
+  await expect(page.getByRole('timer')).toHaveText('00:00')
   await expect(page.getByText('Equipo B gana por penales')).toBeVisible()
   await expect(page.getByRole('button', { name: /FINALIZAR PARTIDO/ })).toBeEnabled()
   await expect(page.getByRole('button', { name: 'INICIAR PENALES' })).toHaveCount(0)

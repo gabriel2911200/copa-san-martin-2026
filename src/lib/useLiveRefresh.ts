@@ -36,11 +36,13 @@ export function useLiveRefresh(refresh: () => void, onChange?: (change: LiveChan
     const fallback = setInterval(() => { ticks++; if (!document.hidden && (!online || ticks % 2 === 0)) schedule() }, 30000)
     const onReturn = () => { if (!document.hidden) schedule() }
     window.addEventListener('online', onReturn)
+    window.addEventListener('tournament-reset', onReturn)
     window.addEventListener('focus', onReturn)
     document.addEventListener('visibilitychange', onReturn)
     return () => {
       disposed = true; clearTimeout(timer); clearInterval(fallback)
       window.removeEventListener('online', onReturn)
+      window.removeEventListener('tournament-reset', onReturn)
       window.removeEventListener('focus', onReturn)
       document.removeEventListener('visibilitychange', onReturn)
       void client.removeChannel(channel)

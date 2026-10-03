@@ -5,7 +5,7 @@ import PenaltyShootout from './PenaltyShootout'
 import ScheduleEditor from './ScheduleEditor'
 import DeleteMatchButton from './DeleteMatchButton'
 import { useTournament } from './lib/useTournament'
-import { clockAt, elapsedSeconds, formatClock, timeoutSeconds } from './lib/matchClock'
+import { clockAt, remainingSeconds, formatClock, timeoutSeconds } from './lib/matchClock'
 import { currentPeriod } from './lib/matchEvents'
 import { isActive, podium, matchStageLabel, stageLabels, teamName } from './lib/tournament'
 import type { PublicMatch, Tournament } from './lib/tournament'
@@ -30,12 +30,12 @@ export function PublicMatchCard({ item, clock = false, statistics = false, refre
     {isActive(item) && <MatchStats match={displayMatch} fouls={item.fouls} events={item.events} home={item.home} away={item.away}/>}
     <div className="score-line"><p>{item.home}</p><strong className={item.match.status==='PROGRAMADO'?'scheduled-score':''}>{item.match.status==='PROGRAMADO'?'Programado':`${item.score.home} - ${item.score.away}`}</strong><p>{item.away}</p></div>
     <div className="match-status"><span className={isActive(item)&&!inTimeout?'live-dot':''}>{item.shootout && !item.shootout.completed_at ? 'En vivo · PENALES' : inTimeout?`En vivo · ${currentPeriod(displayMatch)}T`:isActive(item)?`En vivo · ${displayMatch.status.replaceAll('_',' ')}`:item.match.status==='FINALIZADO'?'Resultado final':'Pendiente de inicio'}</span>
-      {(clock||inTimeout)&&isActive(item)&&<p role="timer" aria-label="Cronómetro">{formatClock(elapsedSeconds(displayMatch,now))}</p>}
+      {(clock||inTimeout)&&isActive(item)&&<p role="timer" aria-label="Cronómetro">{formatClock(remainingSeconds(displayMatch,now))}</p>}
     </div>
     {inTimeout && <div className="public-timeout" role="region" aria-label="Minuto en curso">
       <p className="public-timeout-title">⏸️ MINUTO</p>
       <p>{teamName(item, item.match.timeout_team_id ?? null)}</p>
-      <p>Tiempo del partido: {currentPeriod(displayMatch)}T {formatClock(elapsedSeconds(displayMatch,now))} · Detenido</p>
+      <p>Tiempo del partido: {currentPeriod(displayMatch)}T {formatClock(remainingSeconds(displayMatch,now))} · Detenido</p>
       <p role="timer" aria-label="Contador de minuto">{formatClock(60 - timeoutSeconds(displayMatch,now))}</p>
     </div>}
     <p className="schedule-line">{item.match.scheduled_date?item.match.scheduled_date.split('-').reverse().join('/'):'Fecha individual por confirmar'} · {item.match.scheduled_time?.slice(0,5)??'Hora por confirmar'} <small>Tarija</small></p>

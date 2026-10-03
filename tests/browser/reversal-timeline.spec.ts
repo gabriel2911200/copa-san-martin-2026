@@ -143,7 +143,7 @@ test('revertir roja recupera jugador; revertir minuto reanuda reloj y devuelve s
   await expect(lineup.getByText('#5 Juan Pérez',{exact:true})).toBeVisible()
   expect(data.players[0].active).toBe(true)
   await page.getByRole('button',{name:'MINUTO LOCAL',exact:true}).click()
-  await expect(page.getByRole('timer',{name:'Tiempo de la fase'})).toHaveText('08:35')
+  await expect(page.getByRole('timer',{name:'Tiempo de la fase'})).toHaveText('06:25')
   await expect(page.getByRole('timer',{name:'Contador de minuto'})).toBeVisible()
   await page.getByRole('button',{name:'Opciones de ⏸ Minuto',exact:true}).click()
   await page.getByRole('button',{name:'ANULAR',exact:true}).click()

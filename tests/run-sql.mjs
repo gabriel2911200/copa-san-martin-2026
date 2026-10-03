@@ -251,6 +251,8 @@ try {
   }
   await run('supabase/tests/026_automatic_playoffs.sql')
   await run('supabase/tests/027_first_penalty.sql')
+  await run('supabase/tests/028_match_duration.sql')
+  await run('supabase/tests/029_protected_tournament_reset.sql')
 } catch (error) {
   console.error(error.message, error.detail ?? '', error.where ?? '', 'position:', error.position ?? '')
   process.exitCode = 1

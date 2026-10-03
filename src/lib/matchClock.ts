@@ -1,5 +1,6 @@
 export type MatchStatus = 'PROGRAMADO' | 'PRIMER_TIEMPO' | 'DESCANSO' | 'SEGUNDO_TIEMPO' | 'PAUSADO' | 'TIEMPO_MUERTO' | 'FINALIZADO'
 export type ClockState = {
+  period_duration_seconds?: 900 | 1200
   status: MatchStatus
   paused_from_status: MatchStatus | null
   phase_elapsed_seconds: number
@@ -21,9 +22,19 @@ export function clockAt<T extends ClockState>(match: T, serverNow: number): T {
     phase_started_at: new Date(Date.parse(match.timeout_started_at) + 60000).toISOString() }
 }
 
+export const DEFAULT_PERIOD_SECONDS = 900
+export function periodSeconds(match: Pick<ClockState, 'period_duration_seconds'>) {
+  return match.period_duration_seconds ?? DEFAULT_PERIOD_SECONDS
+}
+
 export function phaseLimit(match: ClockState) {
   const phase = ['PAUSADO','TIEMPO_MUERTO'].includes(match.status) ? match.paused_from_status : match.status
-  return phase === 'DESCANSO' ? 300 : 900
+  return phase === 'DESCANSO' ? 300 : periodSeconds(match)
+}
+
+// Persist elapsed time for event attribution; only the displayed clock counts down.
+export function remainingSeconds(match: ClockState, serverNow: number) {
+  return Math.max(0, phaseLimit(match) - elapsedSeconds(match, serverNow))
 }
 
 export function elapsedSeconds(match: ClockState, serverNow: number) {

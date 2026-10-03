@@ -33,9 +33,9 @@ test('cortes anticipados conservan marcador y goles; finalizado congela reloj', 
     await expect(page.getByRole('heading',{name:'Goles válidos'})).toHaveCount(0)
   }
   expect(actions).toEqual(['BREAK', 'SECOND_HALF', 'FINISH'])
-  await expect(page.getByRole('timer')).toHaveText('00:12')
+  await expect(page.getByRole('timer')).toHaveText('14:48')
   await page.reload()
-  await expect(page.getByRole('timer')).toHaveText('00:12')
+  await expect(page.getByRole('timer')).toHaveText('14:48')
   await expect(page.getByRole('button', { name: 'FINALIZAR PARTIDO' })).toHaveCount(0)
 })
 

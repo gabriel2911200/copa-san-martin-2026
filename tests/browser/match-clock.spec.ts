@@ -28,6 +28,7 @@ test('cortes anticipados conservan marcador y goles; finalizado congela reloj', 
   await page.goto('/admin/partidos/clock-test')
   for (const label of ['Terminar primer tiempo', 'Finalizar descanso e iniciar segundo tiempo', 'FINALIZAR PARTIDO']) {
     await page.getByRole('button', { name: label, exact: true }).click()
+    await page.getByRole('button',{name:'CONFIRMAR',exact:true}).click()
     await expect(page.getByLabel('Marcador')).toHaveText('1 - 0')
     expect(data.goals).toHaveLength(1)
     await expect(page.getByRole('heading',{name:'Goles válidos'})).toHaveCount(0)

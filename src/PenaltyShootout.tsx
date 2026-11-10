@@ -3,12 +3,14 @@ import EventDialog from './EventDialog'
 import { supabase } from './lib/supabase'
 import { penaltySlots } from './lib/penalties'
 import type { Shootout, PenaltyAttempt } from './lib/penalties'
+import { loadShootoutRequest } from './lib/shootoutRequest'
+import type { ShootoutOperation as Operation } from './lib/shootoutRequest'
+import { isConfirmedRejection } from './lib/rpcErrors'
 
 type Item = {
   home: string; away: string; shootout?: Shootout | null
   match: { id: string; home_team_id: string; away_team_id: string; updated_at: string }
 }
-type Operation = { rpc: string; args: Record<string, unknown> }
 export default function PenaltyShootout({ item, editable = false, canStart = false, disabled = false, onChange }: {
   item: Item; editable?: boolean; canStart?: boolean; disabled?: boolean; onChange?: (snapshot: unknown) => void | Promise<void>
 }) {
@@ -16,8 +18,9 @@ export default function PenaltyShootout({ item, editable = false, canStart = fal
   const storageKey = `pending-shootout:${match.id}`
   const [pending, setPending] = useState<Operation | null>(() => {
     if (!editable) return null
-    try { return JSON.parse(sessionStorage.getItem(storageKey) ?? 'null') as Operation | null } catch { return null }
+    try { return loadShootoutRequest(sessionStorage, match.id) } catch { return null }
   })
+  const [finishConfirm,setFinishConfirm]=useState<number|null>(null)
   const [dialog, setDialog] = useState<PenaltyAttempt | null>(null)
   const activeDialog = dialog
   const opening = useRef('')
@@ -29,13 +32,21 @@ export default function PenaltyShootout({ item, editable = false, canStart = fal
   const send = useCallback(async (operation: Operation) => {
     if (!supabase || lock.current || disabled) return
     lock.current = true; setBusy(true); setError('')
-    setPending(operation)
     try {
       sessionStorage.setItem(storageKey, JSON.stringify(operation))
+    } catch {
+      // Nothing was sent. Do not freeze the controls behind an unsendable retry.
+      setError('No se pudo guardar la solicitud en este navegador. Habilita el almacenamiento y vuelve a intentar.')
+      lock.current = false; setBusy(false)
+      return
+    }
+    setPending(operation)
+    try {
       const response = await supabase.rpc(operation.rpc, operation.args)
       if (response.error) {
-        if (response.error.code === 'P0001') {
-          sessionStorage.removeItem(storageKey); setPending(null)
+        if (isConfirmedRejection(response.error.code)) {
+          try { sessionStorage.removeItem(storageKey) } catch { /* A confirmed rejection remains rejected. */ }
+          setPending(null)
           const fresh = await supabase.rpc('get_match_control', { p_match_id: match.id })
           if (fresh.data) await onChange?.(fresh.data)
           throw Error(response.error.message)
@@ -43,7 +54,8 @@ export default function PenaltyShootout({ item, editable = false, canStart = fal
         throw Error('No se pudo confirmar. Reintenta la misma operación.')
       }
       if (!response.data?.shootout) throw Error('Respuesta incompleta. Reintenta la misma operación.')
-      sessionStorage.removeItem(storageKey); setPending(null)
+      try { sessionStorage.removeItem(storageKey) } catch { /* A later replay uses the same idempotent receipt. */ }
+      setPending(null)
       await onChange?.(response.data)
       setDialog(null)
     } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo confirmar. Reintenta.') }
@@ -67,6 +79,7 @@ export default function PenaltyShootout({ item, editable = false, canStart = fal
   if (!s && !canStart && !pending) return null
   return <section className="penalty-shootout" aria-label="Tanda de penales">
     <h2>TANDA DE PENALES</h2>
+    {editable&&s&&!s.attempts.length&&!s.completed_at&&<label>Lanzamientos iniciales por equipo<select aria-label="Lanzamientos iniciales por equipo" value={s.initial_attempts??5} disabled={blocked} onChange={e=>manage(e.target.value==='3'?'SET_THREE':'SET_FIVE')}><option value="3">3 penales</option><option value="5">5 penales</option></select></label>}
     {<>
       <div className="penalty-teams">{[match.home_team_id, match.away_team_id].map(team => {
         const kicks = display.attempts.filter(k => k.team_id === team)
@@ -85,6 +98,7 @@ export default function PenaltyShootout({ item, editable = false, canStart = fal
           </div>}
         </div>
       })}</div>
+      {!display.completed_at&&<p className="penalty-score" aria-label="Marcador actual de penales">{display.score.home} - {display.score.away}</p>}
       {s?.completed_at ? <div className="penalty-result">
         <p>{name(s.winner_team_id).toUpperCase()} GANA EN PENALES</p>
         <p className="penalty-score" aria-label="Marcador de penales">{s.score.home} - {s.score.away}</p>
@@ -92,7 +106,16 @@ export default function PenaltyShootout({ item, editable = false, canStart = fal
         {s?.first_team_id ? <p>SIGUIENTE LANZAMIENTO: <strong>{name(s.next_team_id)}</strong></p> : <p>{s ? 'El primer penal registrado determina quién comienza.' : 'Abriendo tanda…'}</p>}
       </>}
     </>}
+    {editable && s && !s.completed_at && <button disabled={blocked || s.score.home===s.score.away || ![match.home_team_id,match.away_team_id].every(id=>s.attempts.some(k=>k.team_id===id))} onClick={()=>{setError('');setFinishConfirm(s.revision)}}>FINALIZAR TANDA DE PENALES</button>}
+    {finishConfirm!==null&&s&&<EventDialog title="FINALIZAR TANDA DE PENALES" busy={busy} onClose={()=>setFinishConfirm(null)}>
+      <p>{item.home} {s.score.home} - {s.score.away} {item.away}</p>
+      <p>Cierre administrativo anticipado: pueden quedar lanzamientos reglamentarios pendientes. Se registrarán únicamente los tiros ejecutados y ganará {name(s.score.home>s.score.away?match.home_team_id:match.away_team_id)}.</p>
+      <p>Estado: tanda de penales · partido en pausa.</p>
+      <button disabled={blocked||s.revision!==finishConfirm} onClick={()=>{setFinishConfirm(null);manage('FINISH_MANUAL')}}>CONFIRMAR FINALIZACIÓN ADMINISTRATIVA</button>
+      {s.revision!==finishConfirm&&<p role="alert">La tanda cambió. Cancela y revisa el resultado.</p>}
+    </EventDialog>}
     {error && !activeDialog && <p role="alert">{error}</p>}
+    {editable&&!s&&canStart&&error&&!pending&&<button disabled={busy||disabled} onClick={()=>void send({rpc:'open_penalty_shootout',args:{p_match_id:match.id,p_request_id:crypto.randomUUID(),p_expected_updated_at:match.updated_at}})}>Reintentar apertura de penales</button>}
     {pending && !activeDialog && <button disabled={busy || disabled} onClick={() => void send(pending)}>Reintentar operación pendiente</button>}
     {activeDialog && <EventDialog title="CORREGIR LANZAMIENTO" busy={busy} onClose={() => setDialog(null)}>
       {error && <p role="alert">{error}</p>}

@@ -13,5 +13,6 @@ export type Shootout = {
 export function penaltySlots(shootout: Shootout, homeId: string, awayId: string) {
   const home = shootout.attempts.filter(k => k.team_id === homeId).length
   const away = shootout.attempts.filter(k => k.team_id === awayId).length
-  return Math.max(5, home, away) + (!shootout.completed_at && home >= 5 && home === away ? 1 : 0)
+  const extra = !shootout.completed_at && home >= (shootout.initial_attempts ?? 5) && home === away ? home + 1 : 0
+  return Math.max(5, home, away, extra)
 }

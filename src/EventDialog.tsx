@@ -1,5 +1,6 @@
 import { useLayoutEffect, useId, useRef } from 'react'
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 export default function EventDialog({ title, busy = false, onClose, children }: {
   title: string; busy?: boolean; onClose: () => void; children: ReactNode
@@ -27,10 +28,10 @@ export default function EventDialog({ title, busy = false, onClose, children }: 
       })
     }
   }, [])
-  return <dialog ref={dialog} className="match-check-dialog event-dialog" aria-labelledby={titleId}
+  return createPortal(<dialog ref={dialog} className="match-check-dialog event-dialog" aria-labelledby={titleId} onSubmit={e=>e.stopPropagation()}
     onCancel={e => { e.preventDefault(); if (!busy) onClose() }}>
     <h2 id={titleId}>{title}</h2>
     <div className="event-dialog-content">{children}</div>
     <button type="button" disabled={busy} onClick={onClose}>Cancelar</button>
-  </dialog>
+  </dialog>, document.body)
 }

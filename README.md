@@ -1,5 +1,7 @@
 ﻿# Copa San Martín 2026
 
+Auditoría local del 7 de noviembre de 2026: [hallazgos, correcciones y bloqueos para publicación](docs/031-auditoria-integral.md). Las migraciones 030 y 031 siguen pendientes de aplicación en producción. La administración anónima descrita en las notas históricas mantiene un riesgo crítico que debe resolverse antes de publicar como sistema protegido.
+
 React + Vite + TypeScript, Tailwind CSS y React Router. Diseño para celular.
 Implementación de duración 15/20, reinicio protegido y caché: [documentación y pasos de publicación de 028–029](docs/duration-reset-cache-028-029.md). Las notas históricas siguientes conservan su contexto original.
 Proyecto Supabase autorizado: `kxoihaxxxddykziabmoq` (copa san martin 2026).

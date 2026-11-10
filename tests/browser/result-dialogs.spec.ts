@@ -55,6 +55,7 @@ test('W.O. confirma perdedor, recupera respuesta perdida y muestra resultado ofi
   const data = fixture('PROGRAMADO')
   const requests: Record<string, string>[] = []
   await page.route('**/rest/v1/**', route => {
+    if(route.request().url().includes('/duration_options'))return route.fulfill({json:[{seconds:900,built_in:true},{seconds:1200,built_in:true}]})
     if (route.request().url().endsWith('/record_walkover')) {
       const body = route.request().postDataJSON(); requests.push(body)
       expect(body.p_loser_team_id).toBe('a')

@@ -16,6 +16,7 @@ async function mock(page: Page, data = fixture(), loseResponse = false) {
   await page.routeWebSocket('**/realtime/**', socket => socket.close())
   await page.route('**/rest/v1/**', async route => {
     const rpc = route.request().url().split('/').at(-1)!
+    if (rpc?.startsWith('duration_options')) return route.fulfill({json:[{seconds:900,built_in:true},{seconds:1200,built_in:true}]})
     const body = route.request().postDataJSON()
     if (rpc === 'open_penalty_shootout') {
       data.shootout = { first_team_id: null, next_team_id: null, revision: 0, completed_at: null, winner_team_id: null, score: { home: 0, away: 0 }, attempts: [] }
@@ -64,7 +65,7 @@ for (const width of [320, 390, 768, 1280]) test(`tanda completa, corrección y c
   await panel.getByRole('button', { name: 'Lanzamiento 2 San Martín: fallado' }).click()
   let correction = page.getByRole('dialog', { name: 'CORREGIR LANZAMIENTO' })
   await correction.getByRole('button', { name: 'Cambiar a CONVERTIDO' }).click()
-  await expect(panel.getByRole('button', { name: 'FINALIZAR TANDA' })).toHaveCount(0)
+  await expect(panel.getByRole('button', { name: 'FINALIZAR TANDA DE PENALES', exact:true })).toBeDisabled()
   await panel.getByRole('button', { name: 'Lanzamiento 1 San Pablo: convertido' }).click()
   correction = page.getByRole('dialog', { name: 'CORREGIR LANZAMIENTO' })
   await expect(correction.getByRole('button', { name: 'ANULAR último lanzamiento' })).toBeDisabled()

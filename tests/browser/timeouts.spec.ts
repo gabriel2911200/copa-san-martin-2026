@@ -22,6 +22,7 @@ for (const phase of ['PRIMER_TIEMPO','SEGUNDO_TIEMPO'] as const) {
       const team = side === 'local' ? 'a' : 'b'
       let automaticCalls = 0
       await page.clock.install({ time: new Date(base) })
+      await page.clock.pauseAt(new Date(base))
       await page.route('**/rest/v1/**', async route => {
         const url = route.request().url()
         const time = await page.evaluate(() => new Date().toISOString())
@@ -48,6 +49,8 @@ for (const phase of ['PRIMER_TIEMPO','SEGUNDO_TIEMPO'] as const) {
         return route.fulfill({ json: data })
       })
       await page.goto('/admin/partidos/m')
+      await expect(page.locator('h1')).toBeVisible()
+      await page.clock.runFor(50)
       await expect(page.getByRole('button', { name: `MINUTO ${side.toUpperCase()}`, exact: true })).toBeEnabled()
       // Congela después de cargar: el cronómetro puede refrescar hasta un segundo
       // después del vencimiento, pero el servidor siempre conserva el instante exacto.
@@ -66,6 +69,10 @@ for (const phase of ['PRIMER_TIEMPO','SEGUNDO_TIEMPO'] as const) {
         await page.clock.runFor(36000)
         await expect(page.getByRole('timer', { name: 'Contador de minuto' })).toHaveCount(0)
         await page.clock.runFor(100)
+        // The effective clock resumes before the asynchronous settlement RPC.
+        // Flush passive effects/timers and wait for the server acknowledgement,
+        // rather than reading the fixture immediately after a visual transition.
+        await expect.poll(async()=>{await page.clock.runFor(100);return automaticCalls}).toBe(1)
       }
       await expect(page.getByRole('timer', { name: 'Contador de minuto' })).toHaveCount(0)
       await expect(page.getByRole('timer', { name: 'Tiempo de la fase' })).toHaveText(mode === 'manual' ? '06:25' : /^06:2[45]$/)
@@ -86,11 +93,16 @@ test('público: reloj congelado, equipo solicitante y continuación al vencer si
   const data = fixture('SEGUNDO_TIEMPO')
   Object.assign(data.match, { status: 'TIEMPO_MUERTO', paused_from_status: 'SEGUNDO_TIEMPO', phase_started_at: null, timeout_started_at: base, timeout_team_id: 'a' })
   await page.clock.install({ time: new Date(base) })
+  // Freeze before navigation so compilation and request latency cannot consume
+  // part of the one-second post-timeout boundary being asserted below.
+  await page.clock.pauseAt(new Date(base))
   await page.route('**/rest/v1/**', route => {
     expect(route.request().url()).toContain('/get_tournament')
     return route.fulfill({ json: { categories: [], matchdays: [{ id: 'd', number: 1 }], matches: [data] } })
   })
   await page.goto('/')
+  await expect(page.locator('h1')).toBeVisible()
+  await page.clock.runFor(50)
   await expect(page.getByText('⏸️ MINUTO', { exact: true })).toBeVisible()
   const notice=page.getByRole('region',{name:'Minuto en curso'})
   await expect(notice).toHaveCSS('text-align','center')

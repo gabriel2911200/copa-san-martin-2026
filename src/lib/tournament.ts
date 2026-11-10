@@ -11,7 +11,7 @@ export type PublicMatch = {
 }
 export type TournamentCategory = { id: string; name: string; regular_closed_at: string | null; qualified: { id: string; name: string }[] }
 export type Tournament = { categories: TournamentCategory[]; matchdays: { id: string; number: number; date: string | null }[]; matches: PublicMatch[] }
-export const stageLabels: Record<string,string> = { REGULAR: 'Regular', SEMIFINAL: 'Semifinal', THIRD_PLACE: 'Tercer puesto', FINAL: 'Final' }
+export const stageLabels: Record<string,string> = { FRIENDLY: 'Amistoso', REGULAR: 'Regular', SEMIFINAL: 'Semifinal', THIRD_PLACE: 'Tercer puesto', FINAL: 'Final' }
 export function matchStageLabel(item: PublicMatch) {
   return item.match.stage === 'SEMIFINAL' && item.semifinal_number ? `SEMIFINAL ${item.semifinal_number}`
     : item.match.stage === 'REGULAR' ? 'FASE REGULAR' : (stageLabels[item.match.stage] ?? item.match.stage).toUpperCase()

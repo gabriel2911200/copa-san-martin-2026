@@ -1,3 +1,4 @@
+import DurationSelector from './DurationSelector'
 import { useEffect, useRef, useState } from 'react'
 
 import { supabase } from './lib/supabase'
@@ -19,6 +20,7 @@ export default function AdminPage() {
   const [day, setDay] = useState('')
   const [home, setHome] = useState('')
   const [away, setAway] = useState('')
+  const [duration,setDuration]=useState(900)
   const [date,setDate]=useState('')
   const [time,setTime]=useState('')
   const [loading, setLoading] = useState(true)
@@ -65,7 +67,7 @@ export default function AdminPage() {
       const existing = await supabase.from('matches').select('id').eq('category_id', category).eq('matchday_id', day).eq('home_team_id', home).eq('away_team_id', away).eq('stage', stage).limit(1)
       if (existing.error) throw existing.error
       if (existing.data.length) { setError('Ya existe exactamente este partido en la jornada seleccionada.'); return }
-      const result = await supabase.from('matches').insert({ category_id: category, matchday_id: day, home_team_id: home, away_team_id: away, stage, status: 'PROGRAMADO', scheduled_date: date||null, scheduled_time: time||null }).select(fields).single()
+      const result = await supabase.from('matches').insert({ category_id: category, matchday_id: day, home_team_id: home, away_team_id: away, stage, status: 'PROGRAMADO', scheduled_date: date||null, scheduled_time: time||null, period_duration_seconds: duration }).select(fields).single()
       if (result.error) throw result.error
       if (!result.data?.id) throw Error('No se recibió el ID del partido')
       setSuccess('Partido programado correctamente. Puedes crear otro partido.')
@@ -82,6 +84,7 @@ export default function AdminPage() {
     {loading && <p role="status">Cargando datos…</p>}
     {error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-red-800">{error}</p>}
     <p role="status" className="text-green-800">{success}</p>
+    <DurationSelector value={duration} disabled={saving} onChange={setDuration}/>
     <form id="crear" onSubmit={event => { event.preventDefault(); void create() }} className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
       <h2 className="text-xl font-semibold">Crear partido regular</h2>
       <fieldset disabled={disabled} className="space-y-4">

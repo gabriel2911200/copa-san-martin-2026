@@ -1,6 +1,6 @@
 export type MatchStatus = 'PROGRAMADO' | 'PRIMER_TIEMPO' | 'DESCANSO' | 'SEGUNDO_TIEMPO' | 'PAUSADO' | 'TIEMPO_MUERTO' | 'FINALIZADO'
 export type ClockState = {
-  period_duration_seconds?: 900 | 1200
+  period_duration_seconds?: number
   status: MatchStatus
   paused_from_status: MatchStatus | null
   phase_elapsed_seconds: number

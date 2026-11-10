@@ -197,3 +197,17 @@ body {min-height:100vh;background-attachment:fixed;}
 .kick-pending { background: #e2e8f0; color: #334155; }
 .penalty-shootout button { min-height: 44px; padding: 8px 12px; border: 1px solid #64748b; border-radius: 8px; overflow-wrap: anywhere; }
 .penalty-shootout button:disabled { opacity: .5; }
+.penalty-attempts { display:grid; grid-template-columns:repeat(5,32px); gap:6px; margin:8px 0; }
+.penalty-attempts > *, .penalty-shootout .penalty-attempts button { flex:0 0 32px; width:32px; height:32px; min-height:32px; padding:0; border-radius:50%; font-size:14px; }
+.penalty-teams { gap:12px; }
+.penalty-team h3 { font-size:14px; font-weight:700; }
+.penalty-shootout .kick-scored { background:#166534; color:#dcfce7; border:1px solid #4ade80; }
+.penalty-shootout .kick-missed { background:#7f1d1d; color:#fee2e2; border:1px solid #f87171; }
+.penalty-shootout .kick-pending { background:#ffffff09; color:#a9a2ae; border:1px dashed #756b80; }
+.duration-menu { display:grid; width:100%; gap:6px; }
+.duration-selector select { max-width:calc(100% - 54px); min-height:44px; border:1px solid #cbd5e1; border-radius:8px; padding:8px; background:white; color:#172033; }
+.duration-selector > p { flex-basis:100%; }
+.event-dialog-content input:not([type=checkbox]), .event-dialog-content select { display:block; width:100%; min-height:44px; padding:8px; border:1px solid #cbd5e1; border-radius:8px; background:white; color:#172033; }
+.event-dialog-content form { display:grid; gap:12px; }
+.event-dialog-content [role=alert] { border-radius:8px; padding:10px; background:#fef2f2; color:#991b1b; }
+@media(prefers-reduced-motion:no-preference) { .kick-scored,.kick-missed { animation:kick-appear .18s ease-out; } @keyframes kick-appear { from { opacity:.5; } to { opacity:1; } } }

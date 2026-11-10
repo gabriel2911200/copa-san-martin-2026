@@ -118,7 +118,7 @@ try {
   await db.exec('create role anon; create role authenticated;')
   await db.exec(await readFile('supabase/schema.sql', 'utf8'))
   evidence.migrations = (await readdir('supabase/migrations')).filter(f => /^\d{3}_.*\.sql$/.test(f)).sort()
-  assert.ok(evidence.migrations.at(-1).startsWith('029_'), 'Review this simulation before loading future migrations')
+  assert.ok(evidence.migrations.at(-1).startsWith('031_'), 'Review this simulation before loading future migrations')
   for (const file of evidence.migrations) await db.exec(await readFile('supabase/migrations/' + file, 'utf8'))
   const women = (await rows("insert into categories(name) values('MUJERES') returning id"))[0].id
   const men = (await rows("insert into categories(name) values('VARONES') returning id"))[0].id
@@ -210,7 +210,7 @@ try {
   evidence.tournament = tournament
   await mkdir('test-results', { recursive: true })
   await writeFile('test-results/playoffs-simulation.json', JSON.stringify(evidence, null, 2) + '\n')
-  console.log('PASS: regular, category isolation, frozen qualifiers, manual semifinals, tied finish rejection, penalty winners, final, third place, podium, scorers, unchanged standings; migrations 001–029.')
+  console.log('PASS: regular, category isolation, frozen qualifiers, manual semifinals, tied finish rejection, penalty winners, final, third place, podium, scorers, unchanged standings; migrations 001–031.')
   console.log(JSON.stringify({ qualified: evidence.qualified_team_ids, podium: evidence.podium, rejectedInvalidActions: evidence.rejections.length }, null, 2))
 } catch (error) {
   console.error('FAIL', error.message, error.code ?? '', error.query ?? '')

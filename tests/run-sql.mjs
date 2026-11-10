@@ -4,6 +4,7 @@ import { readFile, readdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import assert from 'node:assert/strict'
+import { verifyLineupConcurrency } from './lineupConcurrency.mjs'
 
 if (!process.argv[2]) throw Error('Indica la ruta al módulo de PGlite instalado para pruebas.')
 const { PGlite } = await import(pathToFileURL(resolve(process.argv[2])).href)
@@ -27,6 +28,18 @@ try {
     let beforeShootouts
     let beforeAutomatic
     let beforeInitial
+    let beforeFlexible
+    const flexibleSnapshot = async () => (await db.query(`select jsonb_build_object(
+      'matches',(select jsonb_agg(to_jsonb(m)-'friendly_penalties' order by id) from public.matches m),
+      'events',(select jsonb_agg(to_jsonb(e) order by id) from public.match_events e),
+      'players',(select jsonb_agg(to_jsonb(p) order by id) from public.players p),
+      'lineup',(select jsonb_agg(to_jsonb(p) order by match_id,player_id) from public.match_players p),
+      'shootouts',(select jsonb_agg(to_jsonb(s)-'initial_attempts' order by match_id) from public.penalty_shootouts s),
+      'attempts',(select jsonb_agg(to_jsonb(a) order by id) from public.penalty_shootout_attempts a),
+      'teams',(select jsonb_agg(to_jsonb(t) order by id) from public.teams t),
+      'categories',(select jsonb_agg(to_jsonb(c) order by id) from public.categories c),
+      'days',(select jsonb_agg(to_jsonb(d) order by id) from public.matchdays d)
+    ) data`)).rows[0].data
     const timeoutSnapshot = async () => (await db.query(`select jsonb_build_object(
       'matches',(select jsonb_agg(to_jsonb(m)-array['timeout_started_at','timeout_team_id'] order by id) from public.matches m),
       'events',(select jsonb_agg(to_jsonb(e) order by id) from public.match_events e),
@@ -139,7 +152,9 @@ try {
         (select jsonb_agg(to_jsonb(k) order by sequence) from public.penalty_shootout_attempts k where k.match_id=m.id) attempts
         from public.matches m where m.category_id=(select id from public.categories where name='__026_legacy') order by m.id`)
     }
+    if(file.startsWith('030_')||file.startsWith('031_')) beforeFlexible=await flexibleSnapshot()
     await run(`supabase/migrations/${file}`)
+    if(beforeFlexible) {assert.deepEqual(await flexibleSnapshot(),beforeFlexible);console.log('OK '+file.slice(0,3)+': partidos, jugadores, dorsales, goles, tarjetas, penales, equipos y clasificaciones históricos intactos')}
     if (beforeShootouts) {
       assert.deepEqual([await snapshot(), await timeoutSnapshot()], beforeShootouts, '025 conserva datos existentes')
       console.log('OK 025: partidos, eventos, jugadores, convocatorias y clasificación anteriores intactos')
@@ -253,6 +268,11 @@ try {
   await run('supabase/tests/027_first_penalty.sql')
   await run('supabase/tests/028_match_duration.sql')
   await run('supabase/tests/029_protected_tournament_reset.sql')
+  await run('supabase/tests/030_flexible_matches.sql')
+  await run('supabase/tests/030_three_penalties.sql')
+  await run('supabase/tests/030_reopen_playoffs.sql')
+  await verifyLineupConcurrency(db)
+  await run('supabase/tests/031_audit_integrity.sql')
 } catch (error) {
   console.error(error.message, error.detail ?? '', error.where ?? '', 'position:', error.position ?? '')
   process.exitCode = 1

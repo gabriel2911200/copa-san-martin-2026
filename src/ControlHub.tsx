@@ -18,12 +18,13 @@ export default function ControlHub(){
       <p>{isActive(item)?'En vivo':'Programado'} · {item.category}</p>
       <p>{item.match.scheduled_date?.split('-').reverse().join('/') ?? 'Fecha por confirmar'} · {item.match.scheduled_time?.slice(0,5) ?? 'Hora por confirmar'}</p>
       <Link className="primary-link" to={`/admin/partidos/${item.match.id}`}>CONTROLAR PARTIDO</Link>
-      <ScheduleEditor key={item.match.updated_at} item={item} refresh={refresh} label="PROGRAMAR"/>
+      <ScheduleEditor item={item} refresh={refresh} label="PROGRAMAR"/>
       <details><summary>Opciones del partido</summary>
         <DeleteMatchButton item={item} onDeleted={id=>{setDeleted(current=>[...current,id]);void refresh()}}/>
       </details>
     </section>)}
     {!loading&&!matches.length&&<p>No hay partidos programados ni en vivo.</p>}
+    <details><summary>PARTIDOS FINALIZADOS · VOLVER AL PARTIDO</summary>{data?.matches.filter(m=>m.match.status==='FINALIZADO').map(m=><p key={m.match.id}><Link className="primary-link" to={'/admin/partidos/'+m.match.id}>{m.home} {m.score.home} - {m.score.away} {m.away}</Link></p>)}</details>
     <PlayoffsAdmin data={data} refresh={refresh}/>
     <ResetTournament onReset={() => { setDeleted([]); void refresh() }}/>
   </div>

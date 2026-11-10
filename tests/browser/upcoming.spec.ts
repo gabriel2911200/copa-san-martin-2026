@@ -4,6 +4,7 @@ test('permite programar tres partidos seguidos sin abrir control previo', async 
   const created: Record<string, string>[]=[]
   await page.route('**/rest/v1/**', route=>{
     const url=route.request().url()
+    if(url.includes('/duration_options'))return route.fulfill({json:[{seconds:900,built_in:true},{seconds:1200,built_in:true}]})
     if(url.includes('/categories')) return route.fulfill({json:[{id:'c',name:'Varones'}]})
     if(url.includes('/matchdays')) return route.fulfill({json:[{id:'d',number:2}]})
     if(url.includes('/teams')) return route.fulfill({json:['a','b','c','d'].map(id=>({id,name:`Equipo ${id}`,category_id:'c',active:true}))})

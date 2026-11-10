@@ -1,3 +1,4 @@
+import FriendliesPage from './FriendliesPage'
 import { BrowserRouter, NavLink, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import MatchControlPage from './MatchControlPage'
 import { AdminPage, EquiposPage, InicioPage, PartidosPage, TablasPage } from './pages'
@@ -11,7 +12,7 @@ function Icon({ name }: { name: string }) {
 }
 function Layout({ admin=false }: {admin?:boolean}) {
   const {pathname}=useLocation()
-  const links=admin ? [ ['equipos','Equipos','teams'], ['crear','Crear','plus'], ['calendario','Calendario','calendar'], ['controlar','Controlar','control'] ] : [['','Inicio','home'],['tablas','Tabla','table'],['calendario','Calendario','calendar'],['goleadores','Goleadores','teams']]
+  const links=admin ? [ ['equipos','Equipos','teams'], ['crear','Crear','plus'], ['calendario','Calendario','calendar'], ['controlar','Controlar','control'], ['amistosos','Amistosos','calendar'] ] : [['','Inicio','home'],['tablas','Tabla','table'],['calendario','Calendario','calendar'],['goleadores','Goleadores','teams']]
   return <><header className="brand-header"><img src="/brand/parroquia.png" alt="Parroquia San Martín de Porres – Tarija"/><div><strong>COPA MARTÍN <span>2026</span></strong><small>{admin?'CENTRO DE ADMINISTRACIÓN':'FUTSAL · COMUNIDAD · PASIÓN'}</small></div></header>
     <main className="app-main"><Outlet/></main>
     <nav className="bottom-nav" aria-label={admin?'Navegación administrativa':'Navegación pública'}>{links.map(([path,label,icon])=><NavLink key={path} to={admin?`/admin/${path}`:`/${path}`} end className={({isActive})=>isActive||(admin&&path==='controlar'&&pathname.startsWith('/admin/partidos/'))?'active':''}><Icon name={icon}/><span>{label}</span></NavLink>)}</nav></>
@@ -19,6 +20,6 @@ function Layout({ admin=false }: {admin?:boolean}) {
 export default function App(){return <BrowserRouter><VersionRefresh/><Routes>
   <Route element={<Layout/>}><Route path="goleadores" element={<GoleadoresPage/>}/></Route>
   <Route element={<Layout/>}><Route index element={<InicioPage/>}/><Route path="tablas" element={<TablasPage/>}/><Route path="calendario" element={<PartidosPage/>}/><Route path="partidos" element={<Navigate to="/calendario" replace/>}/></Route>
-  <Route path="admin" element={<Layout admin/>}><Route index element={<Navigate to="controlar" replace/>}/><Route path="crear" element={<AdminPage/>}/><Route path="equipos" element={<EquiposPage/>}/><Route path="calendario" element={<PartidosPage admin/>}/><Route path="controlar" element={<ControlHub/>}/><Route path="fechas" element={<Navigate to="/admin/crear" replace/>}/><Route path="partidos/:id" element={<MatchControlPage/>}/></Route>
+  <Route path="admin" element={<Layout admin/>}><Route index element={<Navigate to="controlar" replace/>}/><Route path="amistosos" element={<FriendliesPage/>}/><Route path="crear" element={<AdminPage/>}/><Route path="equipos" element={<EquiposPage/>}/><Route path="calendario" element={<PartidosPage admin/>}/><Route path="controlar" element={<ControlHub/>}/><Route path="fechas" element={<Navigate to="/admin/crear" replace/>}/><Route path="partidos/:id" element={<MatchControlPage/>}/></Route>
   <Route path="*" element={<main className="app-main"><h1>Página no encontrada</h1></main>}/>
 </Routes></BrowserRouter>}

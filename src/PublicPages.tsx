@@ -125,7 +125,7 @@ export function PartidosPage({admin=false}:{admin?:boolean}) {
       return <section key={d.id} className="calendar-day"><div className="day-heading"><h2>Fecha {d.number}</h2><span>{d.number<=4?'Regular':d.number===5?'Semifinales':'Final / Tercer puesto'}</span></div>
         {d.date&&<p className="schedule-line">Referencia de jornada: {d.date.split('-').reverse().join('/')}</p>}
         {!matches.length&&<p className="empty-state">Sin partidos finalizados.</p>}
-        <div className="calendar-grid">{matches.map(m=><div key={m.match.id} className="calendar-entry"><PublicMatchCard item={m} statistics refresh={admin?refresh:undefined}/>{admin&&<div className="calendar-actions"><ScheduleEditor key={m.match.updated_at} item={m} refresh={refresh}/><DeleteMatchButton item={m} onDeleted={id=>{setDeleted(current=>[...current,id]);void refresh()}}/></div>}</div>)}</div>
+        <div className="calendar-grid">{matches.map(m=><div key={m.match.id} className="calendar-entry"><PublicMatchCard item={m} statistics refresh={admin?refresh:undefined}/>{admin&&<div className="calendar-actions"><ScheduleEditor item={m} refresh={refresh}/><DeleteMatchButton item={m} onDeleted={id=>{setDeleted(current=>[...current,id]);void refresh()}}/></div>}</div>)}</div>
       </section>
     })}
   </div>

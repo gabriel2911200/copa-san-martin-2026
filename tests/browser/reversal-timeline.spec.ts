@@ -136,7 +136,7 @@ test('revertir roja recupera jugador; revertir minuto reanuda reloj y devuelve s
   await expect(page.getByRole('button',{name:'PAUSAR',exact:true})).toBeEnabled()
   await page.getByText('JUGADORES',{exact:true}).click()
   const lineup=page.getByRole('region',{name:'Convocatoria de Santa Ana',exact:true})
-  await expect(lineup.getByText('#5 Juan Pérez',{exact:true})).toHaveCount(0)
+  await expect(lineup.getByText('#5 Juan Pérez',{exact:true})).toBeVisible()
   await page.getByRole('button',{name:'Opciones de 🟥 Roja Juan Pérez',exact:true}).click()
   await page.getByRole('button',{name:'ANULAR',exact:true}).click()
   await page.getByRole('dialog',{name:'Anular evento'}).getByRole('button',{name:'Anular',exact:true}).click()

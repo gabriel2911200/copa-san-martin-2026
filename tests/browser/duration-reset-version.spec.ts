@@ -23,6 +23,7 @@ for(const stage of ['REGULAR','SEMIFINAL','THIRD_PLACE','FINAL']) test(`duració
   let saves=0
   await page.route('**/rest/v1/**',async route=>{
     const rpc=route.request().url().split('/').at(-1)
+    if(rpc?.startsWith('duration_options')) return route.fulfill({json:[{seconds:900,built_in:true},{seconds:1200,built_in:true}]})
     if(rpc==='set_match_duration') {
       expect(route.request().postDataJSON()).toEqual({p_match_id:'m',p_seconds:1200,p_expected_updated_at:data.match.updated_at})
       saves++;data.match.period_duration_seconds=1200
@@ -31,15 +32,15 @@ for(const stage of ['REGULAR','SEMIFINAL','THIRD_PLACE','FINAL']) test(`duració
   })
   await page.goto('/admin/partidos/m')
   await expect(page.getByRole('timer')).toHaveText('15:00')
-  await page.getByRole('button',{name:'20 min',exact:true}).click()
+  await page.getByLabel('Duración por tiempo',{exact:true}).selectOption('1200')
   await expect(page.getByRole('timer')).toHaveText('20:00')
-  await expect(page.getByRole('button',{name:'20 min',exact:true})).toHaveAttribute('aria-pressed','true')
+  await expect(page.getByLabel('Duración por tiempo',{exact:true})).toHaveValue('1200')
   await page.reload()
   await expect(page.getByRole('timer')).toHaveText('20:00')
   // Server state changed on another controller; the existing channel refreshes it.
   data.match.status='PAUSADO';data.match.paused_from_status='PRIMER_TIEMPO'
   await emit(page,'matches')
-  await expect(page.getByRole('button',{name:'15 min',exact:true})).toBeDisabled()
+  await expect(page.getByLabel('Duración por tiempo',{exact:true})).toBeDisabled()
   expect(saves).toBe(1)
   await page.goto('/')
   await expect(page.getByRole('timer')).toHaveText('20:00')

@@ -24,7 +24,6 @@ export default function ControlHub(){
       </details>
     </section>)}
     {!loading&&!matches.length&&<p>No hay partidos programados ni en vivo.</p>}
-    <details><summary>PARTIDOS FINALIZADOS · VOLVER AL PARTIDO</summary>{data?.matches.filter(m=>m.match.status==='FINALIZADO').map(m=><p key={m.match.id}><Link className="primary-link" to={'/admin/partidos/'+m.match.id}>{m.home} {m.score.home} - {m.score.away} {m.away}</Link></p>)}</details>
     <PlayoffsAdmin data={data} refresh={refresh}/>
     <ResetTournament onReset={() => { setDeleted([]); void refresh() }}/>
   </div>

@@ -2,8 +2,8 @@ import { useLayoutEffect, useId, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
-export default function EventDialog({ title, busy = false, onClose, children }: {
-  title: string; busy?: boolean; onClose: () => void; children: ReactNode
+export default function EventDialog({ title, busy = false, onClose, children, actions }: {
+  title: string; busy?: boolean; onClose: () => void; children: ReactNode; actions?: ReactNode
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -32,6 +32,6 @@ export default function EventDialog({ title, busy = false, onClose, children }: 
     onCancel={e => { e.preventDefault(); if (!busy) onClose() }}>
     <h2 id={titleId}>{title}</h2>
     <div className="event-dialog-content">{children}</div>
-    <button type="button" disabled={busy} onClick={onClose}>Cancelar</button>
+    {actions ?? <button type="button" disabled={busy} onClick={onClose}>Cancelar</button>}
   </dialog>, document.body)
 }

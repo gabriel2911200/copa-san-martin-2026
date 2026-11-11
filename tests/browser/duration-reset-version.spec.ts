@@ -68,6 +68,9 @@ for(const stage of ['SEMIFINAL','THIRD_PLACE','FINAL']) test(`${stage} de 20: pe
   await expect(page.getByRole('region',{name:'Tanda de penales'})).toHaveCount(0)
   data.match.phase_elapsed_seconds=1200
   await emit(page,'matches')
+  await page.getByRole('button',{name:'Penales',exact:true}).click()
+  expect(opens).toBe(0)
+  await page.getByRole('button',{name:'INICIAR TANDA DE PENALES'}).click()
   await expect(page.getByRole('region',{name:'Tanda de penales'})).toBeVisible()
   await expect(page.getByRole('timer')).toHaveText('00:00')
   expect(opens).toBe(1)

@@ -1,7 +1,6 @@
 import { isConfirmedRejection } from './lib/rpcErrors'
 import DurationSelector from './DurationSelector'
 import EventDialog from './EventDialog'
-import ReopenMatch from './ReopenMatch'
 import PlayerEventDialog from './PlayerEventDialog'
 import PenaltyShootout from './PenaltyShootout'
 import type { Shootout } from './lib/penalties'
@@ -407,22 +406,20 @@ function MatchController({ id }: { id: string }) {
         players={(snapshot.lineup ?? []).filter(p => p.active && p.team_id === selection.teamId && !playerUnavailable(snapshot.events ?? [], p.id))}
         busy={saving} error={error} disabled={(!synced && !pendingGoal) || !rosterReady || !['PRIMER_TIEMPO','SEGUNDO_TIEMPO'].includes(match.status)}
         onRetry={pendingGoal ? () => void goalOperation() : undefined} onClose={() => setSelection(null)} onSelect={playerId => void goalOperation(selection.teamId, undefined, playerId, selection.type)}/>}
-      <PenaltyShootout key={id} item={snapshot} editable disabled={saving || !synced || !!pendingGoal}
-        canStart={!snapshot.shootout && (match.stage !== 'REGULAR' && (match.stage !== 'FRIENDLY' || match.friendly_penalties)) && phase === 'SEGUNDO_TIEMPO' && ['SEGUNDO_TIEMPO','PAUSADO'].includes(match.status) && elapsed >= periodSeconds(match) && snapshot.score.home === snapshot.score.away && !match.tiebreak_winner_team_id && !match.walkover_loser_team_id}
+      <PenaltyShootout key={id} item={snapshot} editable showControl={match.stage!=='REGULAR'&&match.status!=='FINALIZADO'} disabled={saving || !synced || !!pendingGoal}
+        canStart={!snapshot.shootout && match.stage !== 'REGULAR' && phase === 'SEGUNDO_TIEMPO' && ['SEGUNDO_TIEMPO','PAUSADO'].includes(match.status) && elapsed >= periodSeconds(match) && snapshot.score.home === snapshot.score.away && !match.tiebreak_winner_team_id && !match.walkover_loser_team_id}
         onChange={data => { request.current++; accept(data as Snapshot, performance.now()) }}/>
       <div className="space-y-3" aria-busy={saving}>
         {(snapshot.shootout ? [] : availableActions(match)).map(action => <button key={action} disabled={saving || !synced || !!pendingGoal || (action==='FINISH' && !['REGULAR','FRIENDLY'].includes(match.stage) && snapshot.score.home===snapshot.score.away && !match.tiebreak_winner_team_id)} onClick={() => ['START','BREAK','SECOND_HALF','FINISH'].includes(action) ? setConfirmation({action,version:snapshot.match.updated_at}) : void act(action)} className="min-h-14 w-full rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{actionLabels[action]}</button>)}
       </div>
-      {confirmation&&<EventDialog title={actionLabels[confirmation.action]} busy={saving} onClose={()=>setConfirmation(null)}>
+      {confirmation&&<EventDialog title={actionLabels[confirmation.action]} busy={saving} onClose={()=>setConfirmation(null)} actions={<div className="confirmation-actions"><button type="button" disabled={saving} onClick={()=>setConfirmation(null)}>Cancelar</button><button type="button" disabled={saving||!synced||confirmation.version!==snapshot.match.updated_at} onClick={()=>{const action=confirmation.action;setConfirmation(null);void act(action)}}>CONFIRMAR</button></div>}>
         <p>{snapshot.home} vs {snapshot.away}</p><p>Marcador: {snapshot.score.home} - {snapshot.score.away}</p>
         <p>Estado actual: {match.status.replaceAll('_',' ')}</p>
         {confirmation.action==='BREAK'&&<p>Finalizará el primer tiempo e iniciará el descanso.</p>}
         {confirmation.action==='SECOND_HALF'&&<p>Finalizará el descanso e iniciará el segundo tiempo.</p>}
         {confirmation.action==='FINISH'&&<p>Finalizará el segundo tiempo y el partido definitivamente.</p>}
-        <button disabled={saving||!synced||confirmation.version!==snapshot.match.updated_at} onClick={()=>{const action=confirmation.action;setConfirmation(null);void act(action)}}>CONFIRMAR</button>
         {confirmation.version!==snapshot.match.updated_at&&<p role="alert">El partido cambió. Cancela y revisa el estado actual.</p>}
       </EventDialog>}
-      {match.status==='FINALIZADO'&&<ReopenMatch matchId={id} version={snapshot.match.updated_at} home={snapshot.home} away={snapshot.away} score={snapshot.score} onChange={data=>{request.current++;accept(data as Snapshot,performance.now())}}/>}
       <p role="status" className="text-green-800">{saving ? 'Guardando…' : success}</p>
       {match.status !== 'PROGRAMADO' && <section className="live-match-stats" aria-label="Estadísticas del partido en vivo">
         <h2>ESTADÍSTICAS EN VIVO</h2>

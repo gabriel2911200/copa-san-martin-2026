@@ -35,15 +35,11 @@ async function selectFriendly(page:Page) {
   await selects.nth(0).selectOption('c');await selects.nth(1).selectOption('h');await selects.nth(2).selectOption('a')
 }
 
-test('Enter en tiempo personalizado no crea un amistoso ni envía el formulario exterior',async({page})=>{
+test('amistoso no ofrece duración ni selección aleatoria en creación',async({page})=>{
   const {requests}=await friendlyMock(page)
   await page.goto('/admin/amistosos');await selectFriendly(page)
-  await page.getByRole('button',{name:'Administrar tiempos'}).click()
-  await page.getByRole('button',{name:'TIEMPO PERSONALIZADO',exact:true}).click()
-  await page.getByRole('dialog').getByRole('spinbutton').fill('7')
-  await page.getByRole('dialog').getByRole('spinbutton').press('Enter')
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.getByLabel('Duración por tiempo',{exact:true})).toHaveValue('420')
+  await expect(page.getByRole('button',{name:'Administrar tiempos'})).toHaveCount(0)
+  await expect(page.getByRole('button',{name:'ELEGIR EQUIPOS AL AZAR'})).toHaveCount(0)
   expect(requests).toEqual([])
   await expect(page.getByLabel('Hora',{exact:true})).toBeDisabled()
 })

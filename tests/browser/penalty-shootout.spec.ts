@@ -52,6 +52,11 @@ for (const width of [320, 390, 768, 1280]) test(`tanda completa, corrección y c
   await page.setViewportSize({ width, height: 800 })
   const { data } = await mock(page)
   await page.goto('/admin/partidos/m')
+  if(!data.shootout && data.match.stage!=='REGULAR' && !data.match.walkover_loser_team_id && data.score.home===data.score.away && data.match.phase_elapsed_seconds>=900) {
+    await page.getByRole('button',{name:'Penales',exact:true}).click()
+    const start=page.getByRole('button',{name:'INICIAR TANDA DE PENALES',exact:true})
+    if(await start.isEnabled())await start.click()
+  }
   const panel = page.getByRole('region', { name: 'Tanda de penales' })
   await expect(panel.locator('.penalty-actions button:enabled')).toHaveCount(4)
   await expect(page.getByRole('dialog')).toHaveCount(0)
@@ -97,8 +102,13 @@ for (const width of [320, 390, 768, 1280]) test(`tanda completa, corrección y c
 })
 
 test('respuesta perdida: recarga y reintento conservan request_id y un solo tiro', async ({ page }) => {
-  const { requests } = await mock(page, fixture(), true)
+  const { requests, data } = await mock(page, fixture(), true)
   await page.goto('/admin/partidos/m')
+  if(!data.shootout && data.match.stage!=='REGULAR' && !data.match.walkover_loser_team_id && data.score.home===data.score.away && data.match.phase_elapsed_seconds>=900) {
+    await page.getByRole('button',{name:'Penales',exact:true}).click()
+    const start=page.getByRole('button',{name:'INICIAR TANDA DE PENALES',exact:true})
+    if(await start.isEnabled())await start.click()
+  }
   await page.getByRole('region', { name: 'Tanda de penales' }).getByRole('button', { name: 'GOL San Martín', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Reintentar operación pendiente' })).toBeVisible()
   await page.reload()
@@ -139,6 +149,11 @@ for (const mode of ['regular', 'early', 'unequal', 'walkover']) test(`no inicia 
   if (mode === 'walkover') { data.match.walkover_loser_team_id = 'b'; data.match.status = 'FINALIZADO' }
   await mock(page, data)
   await page.goto('/admin/partidos/m')
+  if(!data.shootout && data.match.stage!=='REGULAR' && !data.match.walkover_loser_team_id && data.score.home===data.score.away && data.match.phase_elapsed_seconds>=900) {
+    await page.getByRole('button',{name:'Penales',exact:true}).click()
+    const start=page.getByRole('button',{name:'INICIAR TANDA DE PENALES',exact:true})
+    if(await start.isEnabled())await start.click()
+  }
   await expect(page.getByLabel('Marcador', { exact: true })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Tanda de penales' })).toHaveCount(0)
   await expect(page.getByRole('dialog')).toHaveCount(0)
@@ -154,6 +169,11 @@ for (const width of [320,390,768,1280]) test(`tanda larga: tercera fila sin desb
     attempts:Array.from({length:20},(_,i)=>({id:String(i),team_id:i%2===0?'a':'b',sequence:i+1,converted:true,request_id:String(i),created_at:data.server_now,updated_at:data.server_now,voided_at:null}))}
   await mock(page,data)
   await page.goto('/admin/partidos/m')
+  if(!data.shootout && data.match.stage!=='REGULAR' && !data.match.walkover_loser_team_id && data.score.home===data.score.away && data.match.phase_elapsed_seconds>=900) {
+    await page.getByRole('button',{name:'Penales',exact:true}).click()
+    const start=page.getByRole('button',{name:'INICIAR TANDA DE PENALES',exact:true})
+    if(await start.isEnabled())await start.click()
+  }
   const panel=page.getByRole('region',{name:'Tanda de penales'})
   await expect(panel.locator('.penalty-attempts').first().locator(':scope > *')).toHaveCount(11)
   for(const grid of await panel.locator('.penalty-attempts').all()) {
@@ -179,10 +199,15 @@ for (const width of [320,390,768,1280]) test(`tanda larga: tercera fila sin desb
   await expect(page.getByText(/muerte súbita/i)).toHaveCount(0)
 })
 
-for(const stage of ['SEMIFINAL','FINAL','THIRD_PLACE']) test(`acceso directo ${stage}: abre controles automáticamente`,async({page})=>{
+for(const stage of ['SEMIFINAL','FINAL','THIRD_PLACE']) test(`acceso directo ${stage}: abre controles con inicio explícito`,async({page})=>{
   const data=fixture();data.match.stage=stage
   await mock(page,data)
   await page.goto('/admin/partidos/m')
+  if(!data.shootout && data.match.stage!=='REGULAR' && !data.match.walkover_loser_team_id && data.score.home===data.score.away && data.match.phase_elapsed_seconds>=900) {
+    await page.getByRole('button',{name:'Penales',exact:true}).click()
+    const start=page.getByRole('button',{name:'INICIAR TANDA DE PENALES',exact:true})
+    if(await start.isEnabled())await start.click()
+  }
   await expect(page.locator('.penalty-actions button:enabled')).toHaveCount(4)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.locator('.penalty-attempts').first().locator(':scope > *')).toHaveCount(5)
@@ -191,6 +216,11 @@ for(const stage of ['SEMIFINAL','FINAL','THIRD_PLACE']) test(`acceso directo ${s
 for (const team of ['San Martín','San Pablo']) for (const action of ['GOL','ERRÓ']) test('primer tiro '+team+' '+action+' fija alternancia',async({page})=>{
   const {data}=await mock(page)
   await page.goto('/admin/partidos/m')
+  if(!data.shootout && data.match.stage!=='REGULAR' && !data.match.walkover_loser_team_id && data.score.home===data.score.away && data.match.phase_elapsed_seconds>=900) {
+    await page.getByRole('button',{name:'Penales',exact:true}).click()
+    const start=page.getByRole('button',{name:'INICIAR TANDA DE PENALES',exact:true})
+    if(await start.isEnabled())await start.click()
+  }
   const panel=page.getByRole('region',{name:'Tanda de penales'})
   await expect(panel.locator('.penalty-actions button:enabled')).toHaveCount(4)
   await panel.getByRole('button',{name:action+' '+team,exact:true}).click()

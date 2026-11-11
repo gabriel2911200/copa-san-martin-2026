@@ -50,16 +50,17 @@ export default function DurationSelector({ value, disabled, onChange }: {value:n
     finally {lock.current=false;setBusy(false)}
   }
   return <fieldset className="duration-selector" disabled={disabled || busy}>
-    <legend>Duración por tiempo</legend>
+    <legend className="sr-only">Duración por tiempo</legend>
+    <div className="duration-inline">
     <select aria-label="Duración por tiempo" value={value} onChange={e=>onChange(Number(e.target.value))}>
       {!options.some(o=>o.seconds===value)&&<option value={value}>{value/60} min · exclusivo del partido</option>}
-      {options.map(o=><option key={o.seconds} value={o.seconds}>{o.seconds/60} min</option>)}
+      {options.map(o=><option key={o.seconds} value={o.seconds}>{o.seconds/60} minutos</option>)}
     </select>
     <button type="button" aria-label="Administrar tiempos" aria-expanded={menu} onClick={()=>setMenu(!menu)}>⋮</button>
+    </div>
     {menu&&<div className="duration-menu">{([['add','AGREGAR TIEMPO'],['remove','ELIMINAR TIEMPO'],['custom','TIEMPO PERSONALIZADO']] as const).map(([key,label])=><button type="button" key={key} onClick={()=>{setMode(key);setMenu(false);setError('');setMinutes('');setRemove('')}}>{label}</button>)}</div>}
     {error&&!mode&&<p role="alert">{error}</p>}
     {error&&!mode&&<button type="button" onClick={()=>void load()}>Actualizar catálogo</button>}
-    <p>Entretiempo de 5 minutos. La duración se fija antes de iniciar.</p>
     {mode&&<EventDialog title={mode==='add'?'AGREGAR TIEMPO':mode==='remove'?'ELIMINAR TIEMPO':'TIEMPO PERSONALIZADO'} busy={busy} onClose={()=>setMode(null)}>
       <form onSubmit={e=>{e.preventDefault();void save()}}>
       <fieldset disabled={busy||disabled}>

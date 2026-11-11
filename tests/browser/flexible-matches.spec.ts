@@ -118,7 +118,7 @@ test('catálogo compartido y duración exclusiva conservan el encuentro al elimi
   await expect(page.getByLabel('Duración por tiempo',{exact:true})).toHaveValue('420')
 })
 
-test('crear amistosos manualmente y al azar actualiza el historial',async({page})=>{
+test('crear amistosos manualmente actualiza el historial',async({page})=>{
   const matches:unknown[]=[]
   const saved:Record<string,unknown>[]=[]
   await page.routeWebSocket('**/realtime/**',socket=>socket.close())
@@ -141,36 +141,12 @@ test('crear amistosos manualmente y al azar actualiza el historial',async({page}
   await selects.nth(2).selectOption('a')
   await page.getByRole('button',{name:'CREAR AMISTOSO',exact:true}).click()
   await expect(page.getByRole('link',{name:'VER Y CONTROLAR AMISTOSO'})).toHaveCount(1)
-  await page.getByRole('button',{name:'ELEGIR EQUIPOS AL AZAR'}).click()
+  await expect(page.getByRole('button',{name:'ELEGIR EQUIPOS AL AZAR'})).toHaveCount(0)
+  await selects.nth(1).selectOption('a');await selects.nth(2).selectOption('h')
   expect(await selects.nth(1).inputValue()).not.toBe(await selects.nth(2).inputValue())
   await page.getByRole('button',{name:'CREAR AMISTOSO',exact:true}).click()
   await expect(page.getByRole('link',{name:'VER Y CONTROLAR AMISTOSO'})).toHaveCount(2)
   expect(saved.every(s=>s.p_home!==s.p_away)).toBe(true)
   await page.reload()
   await expect(page.getByRole('link',{name:'VER Y CONTROLAR AMISTOSO'})).toHaveCount(2)
-})
-
-test('reapertura autentica, confirma y recupera el reloj en pausa',async({page})=>{
-  const {data}=await setup(page,'FINALIZADO')
-  let reopened=0
-  await page.route('**/auth/v1/**',async route=>{
-    if(route.request().url().includes('/logout')) return route.fulfill({json:{}})
-    return route.fulfill({json:{access_token:'authorized-test-token',token_type:'bearer',expires_in:3600,refresh_token:'r',user:{id:'11111111-1111-1111-1111-111111111111',app_metadata:{role:'admin'}}}})
-  })
-  await page.route('**/rest/v1/rpc/reopen_match',async route=>{
-    expect(route.request().headers().authorization).toBe('Bearer authorized-test-token')
-    reopened++;data.match.status='PAUSADO';data.match.paused_from_status='SEGUNDO_TIEMPO';data.match.phase_started_at=null
-    return route.fulfill({json:data})
-  })
-  await page.goto('/admin/partidos/m')
-  await page.getByRole('button',{name:'REABRIR PARTIDO',exact:true}).click()
-  await page.getByRole('button',{name:'Cancelar',exact:true}).click()
-  expect(reopened).toBe(0)
-  await page.getByRole('button',{name:'REABRIR PARTIDO',exact:true}).click()
-  await page.getByLabel('Correo',{exact:true}).fill('admin@example.test')
-  await page.getByLabel('Contraseña',{exact:true}).fill('test-only-password')
-  await page.getByRole('button',{name:'CONFIRMAR REAPERTURA'}).click()
-  await expect(page.getByRole('button',{name:'REANUDAR',exact:true})).toBeVisible()
-  await expect(page.getByRole('timer')).toHaveText('14:10')
-  expect(reopened).toBe(1)
 })

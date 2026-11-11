@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import EventDialog from './EventDialog'
 import { supabase } from './lib/supabase'
 import { penaltySlots } from './lib/penalties'
@@ -11,8 +11,8 @@ type Item = {
   home: string; away: string; shootout?: Shootout | null
   match: { id: string; home_team_id: string; away_team_id: string; updated_at: string }
 }
-export default function PenaltyShootout({ item, editable = false, canStart = false, disabled = false, onChange }: {
-  item: Item; editable?: boolean; canStart?: boolean; disabled?: boolean; onChange?: (snapshot: unknown) => void | Promise<void>
+export default function PenaltyShootout({ item, editable = false, canStart = false, showControl = false, disabled = false, onChange }: {
+  item: Item; editable?: boolean; canStart?: boolean; showControl?: boolean; disabled?: boolean; onChange?: (snapshot: unknown) => void | Promise<void>
 }) {
   const { match, shootout: s } = item
   const storageKey = `pending-shootout:${match.id}`
@@ -23,7 +23,7 @@ export default function PenaltyShootout({ item, editable = false, canStart = fal
   const [finishConfirm,setFinishConfirm]=useState<number|null>(null)
   const [dialog, setDialog] = useState<PenaltyAttempt | null>(null)
   const activeDialog = dialog
-  const opening = useRef('')
+  const [expanded,setExpanded] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const lock = useRef(false)
@@ -67,18 +67,12 @@ export default function PenaltyShootout({ item, editable = false, canStart = fal
       p_team_id: action === 'RECORD' ? teamId : null, p_attempt_id: attemptId,
       p_converted: converted, p_request_id: crypto.randomUUID(), p_expected_revision: s.revision } })
   }
-  useEffect(() => {
-    if (s || !canStart || !editable || disabled || pending || opening.current === match.updated_at) return
-    const timer = setTimeout(() => {
-      opening.current = match.updated_at
-      void send({rpc:'open_penalty_shootout',args:{p_match_id:match.id,p_request_id:crypto.randomUUID(),p_expected_updated_at:match.updated_at}})
-    }, 0)
-    return () => clearTimeout(timer)
-  }, [s,canStart,editable,disabled,pending,match.id,match.updated_at,send])
   const display = s ?? {first_team_id:null,revision:0,completed_at:null,next_team_id:null,winner_team_id:null,score:{home:0,away:0},attempts:[]}
-  if (!s && !canStart && !pending) return null
+  if (!s && !canStart && !pending && !showControl) return null
+  if (!s && !pending && !expanded) return <button type="button" className="penalty-toggle" aria-expanded={false} onClick={()=>setExpanded(true)}>Penales</button>
   return <section className="penalty-shootout" aria-label="Tanda de penales">
     <h2>TANDA DE PENALES</h2>
+    {editable&&!s&&!pending&&<><p>La tanda puede iniciarse al terminar el segundo tiempo con el marcador empatado.</p><button type="button" disabled={blocked||!canStart} onClick={()=>void send({rpc:'open_penalty_shootout',args:{p_match_id:match.id,p_request_id:crypto.randomUUID(),p_expected_updated_at:match.updated_at}})}>INICIAR TANDA DE PENALES</button><button type="button" onClick={()=>setExpanded(false)}>Cerrar penales</button></>}
     {editable&&s&&!s.attempts.length&&!s.completed_at&&<label>Lanzamientos iniciales por equipo<select aria-label="Lanzamientos iniciales por equipo" value={s.initial_attempts??5} disabled={blocked} onChange={e=>manage(e.target.value==='3'?'SET_THREE':'SET_FIVE')}><option value="3">3 penales</option><option value="5">5 penales</option></select></label>}
     {<>
       <div className="penalty-teams">{[match.home_team_id, match.away_team_id].map(team => {
@@ -103,7 +97,7 @@ export default function PenaltyShootout({ item, editable = false, canStart = fal
         <p>{name(s.winner_team_id).toUpperCase()} GANA EN PENALES</p>
         <p className="penalty-score" aria-label="Marcador de penales">{s.score.home} - {s.score.away}</p>
       </div> : editable && <>
-        {s?.first_team_id ? <p>SIGUIENTE LANZAMIENTO: <strong>{name(s.next_team_id)}</strong></p> : <p>{s ? 'El primer penal registrado determina quién comienza.' : 'Abriendo tanda…'}</p>}
+        {s?.first_team_id ? <p>SIGUIENTE LANZAMIENTO: <strong>{name(s.next_team_id)}</strong></p> : <p>{s ? 'El primer penal registrado determina quién comienza.' : pending ? 'Abriendo tanda…' : 'Todavía no se ha iniciado una tanda.'}</p>}
       </>}
     </>}
     {editable && s && !s.completed_at && <button disabled={blocked || s.score.home===s.score.away || ![match.home_team_id,match.away_team_id].every(id=>s.attempts.some(k=>k.team_id===id))} onClick={()=>{setError('');setFinishConfirm(s.revision)}}>FINALIZAR TANDA DE PENALES</button>}

@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+import ReopenMatch from './ReopenMatch'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MatchDetails, { MatchTimeline } from './MatchDetails'
 import MatchStats from './MatchStats'
@@ -93,13 +95,13 @@ export function InicioPage() {
   const groups=new Map<string,{title:string;regular:boolean;items:PublicMatch[]}>()
   for(const item of upcoming) {
     const regular=item.match.stage==='REGULAR'
-    const key=`${item.match.category_id}:${regular?'regular':'playoffs'}`
-    if(!groups.has(key)) groups.set(key,{title:`${regular?'FASE REGULAR':'FASE ELIMINATORIA'} · ${item.category.toUpperCase()}`,regular,items:[]})
+    const key=`${item.match.category_id}:${item.match.stage==='FRIENDLY'?'friendly':regular?'regular':'playoffs'}`
+    if(!groups.has(key)) groups.set(key,{title:`${item.match.stage==='FRIENDLY'?'AMISTOSOS':regular?'FASE REGULAR':'FASE ELIMINATORIA'} · ${item.category.toUpperCase()}`,regular,items:[]})
     groups.get(key)!.items.push(item)
   }
   const phaseLabel=(item:PublicMatch)=>item.match.stage==='REGULAR'?'FASE REGULAR':(stageLabels[item.match.stage]??item.match.stage).toUpperCase()
   return <div className="home-page space-y-6">
-    <section className="hero"><div><p className="eyebrow">LA PASIÓN NOS UNE</p><h1>Copa Martín <span>2026</span></h1><p>El campeonato se vive aquí.</p></div><img src="/brand/copa.png" alt="Logo oficial Copa Martín"/></section>
+    <section className="hero"><div><p className="eyebrow">LA PASIÓN NOS UNE</p><h1>Copa San Martín</h1><p>El campeonato se vive aquí.</p></div><img src="/brand/copa.png" alt="Logo oficial Copa San Martín"/></section>
     {celebration && <div role="status" className="rounded-xl bg-green-100 p-6 text-center text-2xl font-bold text-green-900">¡GOOOL!<br/>{celebration}</div>}
     {loading && <p role="status">Cargando campeonato…</p>}
     {error && <p role="alert">{error}</p>}
@@ -121,11 +123,11 @@ export function PartidosPage({admin=false}:{admin?:boolean}) {
     <div className="category-tabs"><button aria-pressed={category==='all'} onClick={()=>setCategory('all')}>Todos</button>{data?.categories.map(c=><button key={c.id} aria-pressed={category===c.id} onClick={()=>setCategory(c.id)}>{c.name}</button>)}</div>
     {loading&&<p role="status">Cargando calendario…</p>}{error&&<p role="alert">{error}</p>}
     {data?.matchdays.map(d=>{
-      const matches=data.matches.filter(m=>m.match.status==='FINALIZADO'&&!deleted.includes(m.match.id)&&m.matchday===d.number&&(category==='all'||m.match.category_id===category)).sort((a,b)=>(a.match.scheduled_date??'9999').localeCompare(b.match.scheduled_date??'9999')||(a.match.scheduled_time??'99').localeCompare(b.match.scheduled_time??'99'))
+      const matches=data.matches.filter(m=>(m.match.status==='FINALIZADO'||m.match.stage==='FRIENDLY')&&!deleted.includes(m.match.id)&&m.matchday===d.number&&(category==='all'||m.match.category_id===category)).sort((a,b)=>(a.match.scheduled_date??'9999').localeCompare(b.match.scheduled_date??'9999')||(a.match.scheduled_time??'99').localeCompare(b.match.scheduled_time??'99'))
       return <section key={d.id} className="calendar-day"><div className="day-heading"><h2>Fecha {d.number}</h2><span>{d.number<=4?'Regular':d.number===5?'Semifinales':'Final / Tercer puesto'}</span></div>
         {d.date&&<p className="schedule-line">Referencia de jornada: {d.date.split('-').reverse().join('/')}</p>}
         {!matches.length&&<p className="empty-state">Sin partidos finalizados.</p>}
-        <div className="calendar-grid">{matches.map(m=><div key={m.match.id} className="calendar-entry"><PublicMatchCard item={m} statistics refresh={admin?refresh:undefined}/>{admin&&<div className="calendar-actions"><ScheduleEditor item={m} refresh={refresh}/><DeleteMatchButton item={m} onDeleted={id=>{setDeleted(current=>[...current,id]);void refresh()}}/></div>}</div>)}</div>
+        <div className="calendar-grid">{matches.map(m=><div key={m.match.id} className="calendar-entry"><PublicMatchCard item={m} statistics refresh={admin?refresh:undefined}/>{admin&&<div className="calendar-actions" role="group" aria-label="Opciones administrativas"><ScheduleEditor item={m} refresh={refresh}/>{m.match.stage==='FRIENDLY'&&<Link className="primary-link" to={'/admin/partidos/'+m.match.id}>Controlar partido</Link>}{m.match.status==='FINALIZADO'&&<ReopenMatch matchId={m.match.id} version={m.match.updated_at} home={m.home} away={m.away} score={m.score} onChange={()=>void refresh()}/>}<DeleteMatchButton item={m} onDeleted={id=>{setDeleted(current=>[...current,id]);void refresh()}}/></div>}</div>)}</div>
       </section>
     })}
   </div>

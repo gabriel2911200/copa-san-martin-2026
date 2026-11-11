@@ -153,6 +153,18 @@ try {
         from public.matches m where m.category_id=(select id from public.categories where name='__026_legacy') order by m.id`)
     }
     if(file.startsWith('030_')||file.startsWith('031_')) beforeFlexible=await flexibleSnapshot()
+    if(file.startsWith('032_')) {
+      await run('supabase/tests/026_automatic_playoffs.sql')
+      await run('supabase/tests/027_first_penalty.sql')
+      await run('supabase/tests/028_match_duration.sql')
+      await run('supabase/tests/029_protected_tournament_reset.sql')
+      await run('supabase/tests/030_flexible_matches.sql')
+      await run('supabase/tests/030_three_penalties.sql')
+      await run('supabase/tests/030_reopen_playoffs.sql')
+      await run('supabase/tests/031_audit_integrity.sql')
+      await verifyLineupConcurrency(db)
+      beforeFlexible=await flexibleSnapshot()
+    }
     await run(`supabase/migrations/${file}`)
     if(beforeFlexible) {assert.deepEqual(await flexibleSnapshot(),beforeFlexible);console.log('OK '+file.slice(0,3)+': partidos, jugadores, dorsales, goles, tarjetas, penales, equipos y clasificaciones históricos intactos')}
     if (beforeShootouts) {
@@ -264,15 +276,7 @@ try {
   await run('supabase/tests/025_penalty_shootouts.sql')
     }
   }
-  await run('supabase/tests/026_automatic_playoffs.sql')
-  await run('supabase/tests/027_first_penalty.sql')
-  await run('supabase/tests/028_match_duration.sql')
-  await run('supabase/tests/029_protected_tournament_reset.sql')
-  await run('supabase/tests/030_flexible_matches.sql')
-  await run('supabase/tests/030_three_penalties.sql')
-  await run('supabase/tests/030_reopen_playoffs.sql')
-  await verifyLineupConcurrency(db)
-  await run('supabase/tests/031_audit_integrity.sql')
+  await run('supabase/tests/032_calendar_match_controls.sql')
 } catch (error) {
   console.error(error.message, error.detail ?? '', error.where ?? '', 'position:', error.position ?? '')
   process.exitCode = 1

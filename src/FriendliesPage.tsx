@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import DurationSelector from './DurationSelector'
 import { supabase } from './lib/supabase'
 import { useLiveRefresh } from './lib/useLiveRefresh'
 import type { PublicMatch } from './lib/tournament'
@@ -22,8 +21,6 @@ export default function FriendliesPage() {
   const [away,setAway]=useState(recovery.pending?.args.p_away??'')
   const [date,setDate]=useState(recovery.pending?.args.p_date??'')
   const [time,setTime]=useState(recovery.pending?.args.p_time??'')
-  const [seconds,setSeconds]=useState(recovery.pending?.args.p_seconds??900)
-  const [penalties,setPenalties]=useState(recovery.pending?.args.p_penalties??false)
   const [busy,setBusy]=useState(false)
   const [ready,setReady]=useState(false)
   const [error,setError]=useState(recovery.error)
@@ -54,17 +51,11 @@ export default function FriendliesPage() {
   useEffect(()=>{mounted.current=true;const timer=setTimeout(()=>void refresh(),0);return ()=>{mounted.current=false;invalidate();clearTimeout(timer)}},[refresh,invalidate])
   useLiveRefresh(refresh)
   const eligible=teams.filter(t=>t.active&&t.category_id===category)
-  function randomize() {
-    if(eligible.length<2) return
-    const first=crypto.getRandomValues(new Uint32Array(1))[0]%eligible.length
-    const rest=eligible.filter((_,index)=>index!==first)
-    setHome(eligible[first].id);setAway(rest[crypto.getRandomValues(new Uint32Array(1))[0]%rest.length].id)
-  }
   async function create() {
     if(lock.current||(!ready&&!pendingRef.current)||!supabase) return
     if(!pendingRef.current&&(!home||!away||home===away||![home,away].every(id=>eligible.some(t=>t.id===id)))){setError('Selecciona dos equipos activos diferentes de la misma categoría.');return}
     lock.current=true;sequence.current++;setBusy(true);setError('');setSuccess('')
-    const operation=pendingRef.current??{id:crypto.randomUUID(),args:{p_category_id:category,p_home:home,p_away:away,p_date:date||null,p_time:time||null,p_seconds:seconds,p_penalties:penalties}}
+    const operation=pendingRef.current??{id:crypto.randomUUID(),args:{p_category_id:category,p_home:home,p_away:away,p_date:date||null,p_time:time||null,p_seconds:900,p_penalties:false}}
     try {
       try {sessionStorage.setItem(friendlyStorageKey,JSON.stringify(operation))}catch{throw Error('No se pudo guardar la solicitud en este navegador. Habilita el almacenamiento antes de crear el amistoso.')}
       pendingRef.current=operation;setPending(operation)
@@ -86,11 +77,8 @@ export default function FriendliesPage() {
         <label>Categoría<select required className={control} value={category} onChange={e=>{setCategory(e.target.value);setHome('');setAway('')}}><option value="">Seleccionar categoría</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <label>Local<select className={control} required value={home} onChange={e=>setHome(e.target.value)}><option value="">Seleccionar equipo</option>{eligible.map(t=><option key={t.id} value={t.id} disabled={t.id===away}>{t.name}</option>)}</select></label>
         <label>Visitante<select className={control} required value={away} onChange={e=>setAway(e.target.value)}><option value="">Seleccionar equipo</option>{eligible.map(t=><option key={t.id} value={t.id} disabled={t.id===home}>{t.name}</option>)}</select></label>
-        <button className={control} type="button" disabled={eligible.length<2} onClick={randomize}>ELEGIR EQUIPOS AL AZAR</button>
         <label>Fecha<input className={control} type="date" value={date} onChange={e=>{setDate(e.target.value);if(!e.target.value)setTime('')}}/></label>
         <label>Hora<input className={control} type="time" value={time} disabled={!date} onChange={e=>setTime(e.target.value)}/></label>
-        <DurationSelector value={seconds} onChange={setSeconds} disabled={!ready||busy||!!pending}/>
-        <label><input type="checkbox" checked={penalties} onChange={e=>setPenalties(e.target.checked)}/> Habilitar penales en caso de empate</label>
         <button className={control}>CREAR AMISTOSO</button>
       </fieldset>
     </form>
